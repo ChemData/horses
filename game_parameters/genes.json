@@ -1,0 +1,143 @@
+{
+  "size": {
+    "pos": 0,
+    "cutoff": 0.1
+  },
+  "muscle_strength": {
+    "pos": 1
+  },
+  "heart_growth": {
+    "pos": 2
+  },
+  "connective_strength": {
+    "pos": 3
+  },
+  "extension": {
+    "pos": 4,
+    "alleles": [
+      "E"
+    ],
+    "broken": "e",
+    "cutoff": 0.9
+  },
+  "agouti": {
+    "pos": 5,
+    "alleles": [
+      "At", "A", "A+"
+    ],
+    "ranges": [
+      0.2, 0.8
+    ],
+    "broken": "a"
+  },
+  "grey": {
+    "pos": 6,
+    "alleles": [
+      "G"
+    ],
+    "broken": "g"
+  },
+  "cream": {
+    "pos": 7,
+    "alleles": [
+      "prl", "Cr"
+    ],
+    "ranges": [
+      0.1
+    ],
+    "broken": "cr"
+  },
+  "dun": {
+    "pos": 8,
+    "alleles": [
+      "D"
+    ],
+    "broken": "d"
+  },
+  "champagne": {
+    "pos": 9,
+    "alleles": [
+      "Ch"
+    ],
+    "broken": "ch"
+  },
+  "dapple": {
+    "pos": 10,
+    "alleles": [
+      "Z"
+    ],
+    "broken": "z"
+  },
+  "flaxen": {
+    "pos": 11,
+    "alleles": [
+      "F"
+    ],
+    "broken": "f"
+  },
+  "sooty": {
+    "pos": 12,
+    "alleles": [
+      "Sty"
+    ],
+    "broken": "sty"
+  },
+  "rabicano": {
+    "pos": 13,
+    "alleles": [
+      "Rb"
+    ],
+    "broken": "rb"
+  },
+  "kit": {
+    "pos": 14,
+    "alleles": [
+      "w+", "Sb", "Rn", "Tb"
+    ],
+    "ranges": [
+      0.7, 0.8, 0.9
+    ],
+    "broken": "W",
+    "cutoff": 0.05
+  },
+  "overo": {
+    "pos": 15,
+    "alleles": [
+      "o"
+    ],
+    "broken": "O",
+    "cutoff": 0.1
+  },
+  "splashed": {
+    "pos": 16,
+    "alleles": [
+      "spl"
+    ],
+    "broken": "Spl",
+    "cutoff": 0.9
+  },
+  "leopard_complex": {
+    "pos": 17,
+    "alleles": [
+      "Lp"
+    ],
+    "broken": "lp",
+    "cutoff": 0.9
+  },
+  "pattern1": {
+    "pos": 18,
+    "alleles": [
+      "PATN1"
+    ],
+    "broken": "patn1",
+    "cutoff": 0.7
+  },
+  "pattern2": {
+    "pos": 19,
+    "alleles": [
+      "PATN2"
+    ],
+    "broken": "patn2",
+    "cutoff": 0.7
+  }
+}
