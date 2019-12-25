@@ -15,7 +15,7 @@ class Game:
     owner = 2
 
     def __init__(self, start_day, gui=False):
-        self.day = self.str_to_datetime(start_day)
+        self.day = pd.to_datetime(start_day)
         if not gui:
             gui = BasicPrinter()
         self.gui = gui
@@ -27,15 +27,15 @@ class Game:
             self._deliver_foals()
             self._kill_horses()
             if not basic:
-                if random.random() >= 1:
+                if random.random() >= .1:
                     self._prepare_for_race()
             self.day += datetime.timedelta(1)
             self.gui.update_day(self.day)
             self.gui.update_money()
 
     def _deliver_foals(self):
-        command = f"SELECT `horse_id`, `name` from horses where due_date = '{str(self.day)}'"
-        to_deliver = to.table_to_df(command)
+        command = f"SELECT id, name from horses where due_date = '{str(self.day)}'"
+        to_deliver = pd.read_sql_query(command, to.db)
         for _, horse in to_deliver.iterrows():
 
             if not self.automated:
@@ -43,17 +43,17 @@ class Game:
                              f"What would you like it name it?")
             else:
                 name = np.random.choice(hf.HORSE_NAMES)
-                foal_id = hf.give_birth(horse.name, self.day, name)
+                foal_id = hf.give_birth(horse['id'], self.day, name)
                 self.gui.display_message(
-                    f"[horses:{horse.name}] has given birth to a foal named [horses:{foal_id}].")
+                    f"[horses:{horse['id']}] has given birth to a foal named [horses:{foal_id}].")
 
     def _kill_horses(self):
         """Kill any horses who are due to die this day."""
-        command = f"SELECT `horse_id`, `name` from horses where expected_death = '{str(self.day)}'"
-        to_kill = to.table_to_df(command)
+        command = f"SELECT id, name from horses where expected_death = '{str(self.day)}'"
+        to_kill = pd.read_sql_query(command, to.db)
         for _, horse in to_kill.iterrows():
-            self.gui.display_message(f"[horses:{horse.name}] has died. F.")
-            hf.kill_horse(horse.name, self.day)
+            self.gui.display_message(f"[horses:{horse['id']}] has died. F.")
+            hf.kill_horse(horse['id'], self.day)
 
     def _prepare_for_race(self):
         """Create a new race and invite the owners to send horses."""
@@ -193,14 +193,14 @@ class Game:
     def breedable_horses(self):
         """Return an array of horses that can be made to breed."""
         youngest = str(self.day - datetime.timedelta(hf.VALS['SEXUAL_MATURITY']))
-        command = f"SELECT * from horses where" \
+        command = f"SELECT * FROM horses where" \
             f" owner_id = {self.owner}" \
             f" and death_date is NULL" \
             f" and due_date is NULL" \
             f" and birth_date <= '{youngest}'"
-        horses = to.table_to_df(command)
+        horses = to.query_to_dataframe(command)
         horses['age'] = horses['birth_date'].apply(self.display_age)
-        return horses[['name', 'gender', 'age']]
+        return horses[['name', 'id', 'gender', 'age']]
 
     def display_age(self, birthday):
         """Converts a birthday into an approximate age."""
@@ -213,7 +213,7 @@ class Game:
 
     def horse_info(self, horse_id):
         """Return formatted information of the desired horse."""
-        data = to.get_rows('horses', [horse_id]).loc[horse_id]
+        data = to.get_rows('horses', [horse_id]).iloc[0]
         age = (self.day - data['birth_date']).days
         title = hf.horse_title(data['gender'], age)
         color = hf.coat(horse_info=data)
@@ -221,7 +221,7 @@ class Game:
             verb = 'is'
         else:
             verb = 'was'
-        msg = f"[horses:{data.name}] {verb} a {color} {title} of age {self.display_age(data['birth_date'])}."
+        msg = f"[horses:{data['id']}] {verb} a {color} {title} of age {self.display_age(data['birth_date'])}."
 
         # Add parent information
         if data['dam'] is None:
@@ -252,14 +252,13 @@ class Game:
             List. List of all ids of horses owned.
         """
         if owner_id is None:
-            command = f"SELECT * from horses WHERE" \
+            command = f"SELECT id from horses WHERE" \
                 f" death_date is NULL"
         else:
-            command = f"SELECT * from horses WHERE" \
+            command = f"SELECT id from horses WHERE" \
                 f" owner_id = {owner_id}" \
                 f" and death_date is NULL"
-        horses = to.table_to_df(command)
-        return list(horses.index)
+        return list(pd.read_sql_query(command, to.db)['id'].values)
 
     def add_owners(self, number, starting_cash):
         """Add new owners.

@@ -3,8 +3,6 @@ import datetime
 import json
 import numpy as np
 import pandas as pd
-import mysql.connector as mysql
-from mysql.connector import errorcode
 import table_operations
 import genetics
 import phenotype
@@ -69,7 +67,7 @@ def add_horse(horse_params):
 
 def trade_horse(horse_id, new_owner_id):
     """Transfer owndership of a horse from one owner to another."""
-    command = f"SET owner_id = {new_owner_id} WHERE horse_id = {horse_id}"
+    command = f"SET owner_id = {new_owner_id} WHERE id = {horse_id}"
     table_operations.update_value('horses', command)
 
 
@@ -84,6 +82,7 @@ def horse_sex(horse1, horse2, date):
         date (datetime.date): Day on which this is occurring.
     """
     data = table_operations.get_rows('horses', [horse1, horse2])
+    data.set_index('id', inplace=True)
 
     if data.loc[horse1, 'gender'] == data.loc[horse2, 'gender']:
         raise WrongGender('You need a dam and sire to make babies happen.')
@@ -95,16 +94,16 @@ def horse_sex(horse1, horse2, date):
         raise WrongAge(f'{horse2} is too young to have sex.')
 
     lady_horse = data[data['gender'] == 'F'].iloc[0]
-    if lady_horse['due_date'] is not None:
+    if lady_horse['due_date'] is not None and not pd.isna(lady_horse['due_date']):
         raise PregnancyIssue(f'{lady_horse.name} is already pregnant.')
     man_horse = data[data['gender'] == 'M'].iloc[0]
 
     num_days = round(np.random.normal(VALS['GESTATION_MEAN'], VALS['GESTATION_STD']))
     due_date = date + datetime.timedelta(num_days)
-    command = f"SET due_date = '{str(due_date)}' WHERE horse_id = {lady_horse.name}"
+    command = f"SET due_date = '{str(due_date)}' WHERE id = {lady_horse.name}"
     table_operations.update_value('horses', command)
 
-    command = f"SET impregnated_by = '{man_horse.name}' WHERE horse_id = {lady_horse.name}"
+    command = f"SET impregnated_by = '{man_horse.name}' WHERE id = {lady_horse.name}"
     table_operations.update_value('horses', command)
 
 
@@ -118,8 +117,8 @@ def give_birth(horse, date, name=None):
     sire = table_operations.get_rows('horses', dam['impregnated_by']).iloc[0]
 
     foal = make_random_horse(date)
-    foal['dam'] = dam.name
-    foal['sire'] = sire.name
+    foal['dam'] = dam['id']
+    foal['sire'] = sire['id']
     foal['owner_id'] = dam['owner_id']
     foal['birth_date'] = str(date)
     foal['expected_death'] = str(date + datetime.timedelta(
@@ -129,10 +128,10 @@ def give_birth(horse, date, name=None):
     mix_genomes(dam, sire, foal)
     new_id = add_horse(foal)
 
-    command = f"SET impregnated_by = NULL WHERE horse_id = {horse}"
+    command = f"SET impregnated_by = NULL WHERE id = {horse}"
     table_operations.update_value('horses', command)
 
-    command = f"SET due_date = NULL WHERE horse_id = {horse}"
+    command = f"SET due_date = NULL WHERE id = {horse}"
     table_operations.update_value('horses', command)
 
     return new_id
@@ -183,7 +182,7 @@ def kill_horse(horse, date):
         horse (int): ID of the horse to kill.
         date (datetime.date): Day of death.
     """
-    command = f"SET death_date = '{str(date)}' WHERE horse_id = {horse}"
+    command = f"SET death_date = '{str(date)}' WHERE id = {horse}"
     table_operations.update_value('horses', command)
 
 
@@ -282,8 +281,6 @@ def race_summary(horse_ids):
     output = pd.merge(output, placing, how='outer', right_index=True, left_index=True)
     output['winnings'].fillna(0, inplace=True)
     return output
-
-
 
 
 class WrongGender(Exception):

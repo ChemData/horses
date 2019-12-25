@@ -1,17 +1,16 @@
 import os
 import numbers
+import sqlite3
 import numpy as np
 import pandas as pd
-import mysql.connector as mysql
-from mysql.connector import errorcode
+#import mysql.connector as mysql
+#from mysql.connector import errorcode
 
-
-db = mysql.connect(user=os.environ['sql_username'],
-                   password=os.environ['sql_pw'],
-                   host='localhost',
-                   database='horse_game')
+folder = os.path.dirname(__file__)
+db = sqlite3.connect(database=os.path.join(folder, 'game_data.db'))
 cursor = db.cursor()
 
+DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date']
 
 def insert_into_table(table, data_dict):
     """Insert a new row into an existing table.
@@ -29,12 +28,12 @@ def insert_into_table(table, data_dict):
         command = f"INSERT INTO '{table}' {str(tuple(data_dict.keys()))}"
         command = command.replace("'", "`")
         command = command[:-2] + command[-1]
-        command += f" VALUES {str(tuple([convert_for_mysql(v) for v in data_dict.values()]))}"
+        command += f" VALUES {str(tuple([convert_for_sqlite(v) for v in data_dict.values()]))}"
         command = command[:-2] + command[-1]
     if len(data_dict) > 1:
         command = f"INSERT INTO '{table}' {str(tuple(data_dict.keys()))}"
         command = command.replace("'", "`")
-        command += f" VALUES {str(tuple([convert_for_mysql(v) for v in data_dict.values()]))}"
+        command += f" VALUES {str(tuple([convert_for_sqlite(v) for v in data_dict.values()]))}"
     cursor.execute(command)
     db.commit()
     return cursor.lastrowid
@@ -62,21 +61,13 @@ def insert_dataframe_into_table(table, data):
 def whole_table(table):
     """Convert a table in the database into a pandas dataframe."""
     command = f"SELECT * from {table}"
-    return table_to_df(command)
+    return query_to_dataframe(command)
 
 
-def table_to_df(command, set_index_from_first_column=True):
-    """Call a selection command on a table and convert the result into a DataFrame."""
-    cursor.execute(command)
-    col_names = [x[0] for x in cursor.description]
-    output = pd.DataFrame(columns=col_names)
-    c = 0
-    for row in cursor:
-        output.loc[c] = row
-        c += 1
-    if set_index_from_first_column:
-        output.set_index(col_names[0], inplace=True)
-    return output
+def primary_key(table):
+    """Return the first primary key of the given table."""
+    table_info = pd.read_sql_query(f'PRAGMA table_info({table})', db)
+    return table_info.loc[table_info['pk'] == 1, 'name'].values[0]
 
 
 def get_rows(table, ids):
@@ -96,11 +87,10 @@ def get_rows(table, ids):
     else:
         ids = tuple(ids)
 
-    cursor.execute(f"SHOW INDEXES FROM {table}")
-    primary_key = cursor.__next__()[4]
+    pk = primary_key(table)
 
-    command = f"SELECT * from {table} where {primary_key} IN {ids}"
-    return table_to_df(command)
+    command = f"SELECT * from {table} where {pk} IN {ids}"
+    return query_to_dataframe(command)
 
 
 def get_column(table, column, ids='all'):
@@ -115,8 +105,7 @@ def get_column(table, column, ids='all'):
     Return:
         pd.DataFrame containing the column data. Index are the ids.
     """
-    cursor.execute(f"SHOW INDEXES FROM {table}")
-    primary_key = cursor.__next__()[4]
+    pk = primary_key(table)
     if ids != 'all':
         if not isinstance(ids, list):
             ids = f"({ids})"
@@ -124,18 +113,17 @@ def get_column(table, column, ids='all'):
             ids = f"({ids[0]})"
         else:
             ids = tuple(ids)
-        command = f"SELECT {primary_key}, {column} from {table} where {primary_key} IN {ids}"
+        command = f"SELECT {pk}, {column} from {table} where {pk} IN {ids}"
     else:
-        command = f"SELECT {primary_key}, {column} from {table}"
-    return table_to_df(command)
+        command = f"SELECT {pk}, {column} from {table}"
+    return query_to_dataframe(command)
 
 
 def get_primary_index(table):
     """Return the primary index values of a table."""
-    cursor.execute(f"SHOW INDEXES FROM {table}")
-    primary_key = cursor.__next__()[4]
-    command = f"SELECT {primary_key} from {table}"
-    return list(table_to_df(command, set_index_from_first_column=False)[primary_key].values)
+    pk = primary_key(table)
+    command = f"SELECT {pk} from {table}"
+    return list(pd.read_sql_query(command, db)[pk].values)
 
 
 def update_value(table, command):
@@ -145,23 +133,22 @@ def update_value(table, command):
     db.commit()
 
 
+def query_to_dataframe(query):
+    """Return the query as a pandas dataframe."""
+    return pd.read_sql_query(query, db, parse_dates=DATE_COLUMNS)
+
+
 def list_tables():
     """Return a list of tables in the database."""
-    cursor.execute('show tables')
-    output = []
-    for i in cursor:
-        output += [i[0]]
-    return output
+    names = cursor.execute("SELECT name FROM sqlite_master;")
+    return [x[0] for x in names]
 
 
 def delete_tables(tables):
     if isinstance(tables, str):
         tables = [tables]
     for table in tables:
-        try:
-            cursor.execute(f"DROP TABLE {table}")
-        except mysql.errors.ProgrammingError:
-            pass
+        cursor.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 def clear_tables(tables):
@@ -173,14 +160,11 @@ def clear_tables(tables):
     if isinstance(tables, str):
         tables = [tables]
     for table in tables:
-        try:
-            cursor.execute(f"TRUNCATE TABLE {table}")
-        except mysql.errors.ProgrammingError:
-            pass
+        cursor.execute(f"DELETE FROM {table}")
 
 
-def convert_for_mysql(value):
-    """Convert a value into a form that my sql can handle."""
+def convert_for_sqlite(value):
+    """Convert a value into a form that sqlite can handle."""
     if isinstance(value, str):
         return value
     if isinstance(value, numbers.Number):

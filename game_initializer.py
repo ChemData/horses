@@ -1,98 +1,65 @@
 import os
-import mysql.connector as mysql
-from mysql.connector import errorcode
+import sqlite3
+#import mysql.connector as mysql
+#from mysql.connector import errorcode
 import table_operations
 from game_parameters.constants import *
 import game_parameters.parameter_checker
 
-
-# Check that a username and password are stored in the environment variables
-try:
-    os.environ['sql_username']
-except KeyError:
-    os.environ['sql_username'] = input('What is your sql username?')
-
-try:
-    os.environ['sql_pw']
-except KeyError:
-    os.environ['sql_pw'] = input('What is your sql password?')
-
-
-db = mysql.connect(user=os.environ['sql_username'],
-                   password=os.environ['sql_pw'],
-                   host='localhost')
+folder = os.path.dirname(__file__)
+db = sqlite3.connect(os.path.join(folder, 'game_data.db'))
 cursor = db.cursor()
 
-
-# Create the database if it is missing
-try:
-    cursor.execute('CREATE DATABASE horse_game')
-except mysql.errors.DatabaseError:
-    print('The necessary database already exists')
-cursor.execute('USE horse_game')
+table_operations.delete_tables(['horses', 'owners', 'races', 'race_results'])
 
 
 # Create all the necessary tables
 tables = {}
 base_pairs = CHROMOSOME_LENGTH * GENE_LENGTH
-tables['horses'] = (
-    "CREATE TABLE `horses` ("
-    "  `horse_id` int(11) NOT NULL AUTO_INCREMENT,"
-    "  `birth_date` date NOT NULL,"
-    "  `death_date` date DEFAULT NULL,"
-    "  `expected_death` date NOT NULL,"
-    f"  `name` varchar({HORSE_NAME_MAX}) NOT NULL,"
-    "  `gender` enum('M','F') NOT NULL,"
-    "  `owner_id` int(12) NOT NULL,"
-    "  `due_date` date DEFAULT NULL,"
-    "  `impregnated_by` int(11) DEFAULT NULL,"
-    "  `dam` int(11),"
-    "  `sire` int(11),"
-    f"  `dna1` varchar({base_pairs}),"
-    f"  `dna2` varchar({base_pairs}),"
-    "  PRIMARY KEY (`horse_id`)"
-    ") ENGINE=InnoDB")
+tables['horses'] = """
+CREATE TABLE IF NOT EXISTS horses (
+    id integer PRIMARY KEY,
+    birth_date text NOT NULL,
+    death_date text DEFAULT NULL,
+    expected_death text NOT NULL,
+    name text NOT NULL,
+    gender text check(gender in ('M', 'F')),
+    owner_id integer,
+    due_date text DEFAULT NULL,
+    impregnated_by integer DEFAULT NULL,
+    dam integer DEFAULT NULL,
+    sire integer DEFAULT NULL,
+    dna1 text,
+    dna2 text,
+    FOREIGN KEY (owner_id) REFERENCES owners (owner_id)
+    )"""
+tables['owners'] = """
+CREATE TABLE IF NOT EXISTS owners (
+    id integer PRIMARY KEY,
+    money integer NOT NULL,
+    name text NOT NULL
+    )"""
 
-tables['owners'] = (
-    "CREATE TABLE `owners` ("
-    "  `owner_id` int(8) NOT NULL AUTO_INCREMENT,"
-    "  `money` decimal(10, 2) NOT NULL,"
-    f"  `name` varchar({OWNER_NAME_MAX}) NOT NULL,"
-    "  PRIMARY KEY (`owner_id`)"
-    ") ENGINE=InnoDB")
+tables['races'] = """
+CREATE TABLE IF NOT EXISTS races (
+    id integer PRIMARY KEY,
+    date text NOT NULL,
+    total_purse integer DEFAULT 0,
+    distance float NOT NULL
+    )"""
 
-tables['races'] = (
-    "CREATE TABLE  `races` ("
-    "  `race_id` int(8) NOT NULL AUTO_INCREMENT,"
-    "  `time` DATETIME NOT NULL,"
-    "  `total_purse` decimal(10,2),"
-    "  `distance` float,"
-    "  PRIMARY KEY (`race_id`)"
-    ") ENGINE=InnoDB")
+tables['race_results'] = """
+CREATE TABLE IF NOT EXISTS race_results (
+    id integer PRIMARY KEY,
+    horse_id integer NOT NULL,
+    race_id integer NOT NULL,
+    time float NOT NULL,
+    place integer,
+    winnings integer DEFAULT 0,
+    FOREIGN KEY (horse_id) REFERENCES horses (id)
+    FOREIGN KEY (race_id) REFERENCES races (id)
+    )"""
 
-tables['race_results'] = (
-    "CREATE TABLE  `race_results` ("
-    "  `result_id` int(8) NOT NULL AUTO_INCREMENT,"
-    "  `horse_id` int(11) NOT NULL,"
-    "  `race_id` int(8) NOT NULL,"
-    "  `time` float,"
-    "  `place` int,"
-    "  `winnings` decimal(10,2),"
-    "  PRIMARY KEY (`result_id`)"
-    ") ENGINE=InnoDB")
-
-for table in tables:
-    table_description = tables[table]
-    try:
-        print("Creating table {}: ".format(table), end='')
-        cursor.execute(table_description)
-    except mysql.Error as err:
-        if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-            print("already exists.")
-        else:
-            print(err.msg)
-    else:
-        print("OK")
-
-table_operations.clear_tables(tables.keys())
-
+for name, table in tables.items():
+    print(f"Creating table {name}. ")
+    cursor.execute(table)

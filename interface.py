@@ -68,7 +68,7 @@ class MainScreen(QtWidgets.QMainWindow):
             self.next_n_days.setText(f'Play {days} Days')
 
     def update_day(self, date):
-        self.day_display.setText(f'{date}')
+        self.day_display.setText(f'{date.date()}')
 
     def update_money(self):
         money = of.money(self.game.owner)
@@ -125,8 +125,6 @@ class MainScreen(QtWidgets.QMainWindow):
         self.entity_info_box.setText(info)
 
 
-
-
 class BreedingBox(QMdiSubWindow):
 
     def __init__(self, main_screen, game):
@@ -147,14 +145,14 @@ class BreedingBox(QMdiSubWindow):
         self.dam_selection.clear()
         for i, dam in horses[horses['gender'] == 'F'].iterrows():
             item = QtWidgets.QListWidgetItem()
-            item.horse_id = dam.name
+            item.horse_id = dam['id']
             item.setData(0, f"{dam['name']}")
             self.dam_selection.insertItem(1, item)
 
         self.sire_selection.clear()
         for i, sire in horses[horses['gender'] == 'M'].iterrows():
             item = QtWidgets.QListWidgetItem()
-            item.horse_id = sire.name
+            item.horse_id = sire['id']
             item.setData(0, f"{sire['name']}")
             self.sire_selection.insertItem(1, item)
 
@@ -223,7 +221,7 @@ class RaceWindow(QtWidgets.QMainWindow):
         for h in self.game.living_horses(self.game.owner):
             item = QtWidgets.QListWidgetItem()
             item.horse_id = h
-            name = to.get_rows('horses', [h]).loc[h, 'name']
+            name = to.get_rows('horses', [h])['name'].values[0]
             item.setData(0, f"{name}")
             self.horse_selection.insertItem(1, item)
 
@@ -394,9 +392,9 @@ class TradeBox(QMdiSubWindow):
         for i, row in to.get_column('owners', 'name').iterrows():
             if i != self.game.owner and i != 1:
                 item = QtWidgets.QListWidgetItem()
-                item.owner_id = row.name
+                item.owner_id = row['id']
                 item.setData(0, row['name'])
-                self.counterparty_selection.addItem(row['name'], userData=row.name)
+                self.counterparty_selection.addItem(row['name'], userData=row['id'])
 
 
 class PedigreeWindow(QtWidgets.QMainWindow):
