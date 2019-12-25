@@ -6,7 +6,8 @@ GENE_LENGTH = 6  # Basepairs per gene
 CHROMOSOME_LENGTH = 20  # Genes per chromosome
 DEFAULT_WELL_FORMED_CUTOFF = 0  # Default value for difficulty of a gene being well formed.
                                 # Higher is harder.
-with open(os.path.join('game_parameters', 'genes.json'), 'r') as f:
+folder = os.path.dirname(__file__)
+with open(os.path.join(folder, 'genes.json'), 'r') as f:
     GENES = json.load(f)
 
 

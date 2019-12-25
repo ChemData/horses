@@ -1,5 +1,6 @@
 import random
 import table_operations
+import pandas as pd
 from game_parameters import owner_names
 import phenotype
 
@@ -24,9 +25,9 @@ def pick_race_horses(owner_id, number):
     if len(horses) == 0:
         return []
     horses['speed'] = horses.apply(calc_speed, axis=1)
-    horses.sort_values(by='speed')
+    horses.sort_values(by='speed', inplace=True)
 
-    return list(horses.iloc[:min(number, len(horses))].index.values)
+    return list(horses.iloc[:min(number, len(horses))]['id'].values)
 
 
 def horses_of(owner_id):
@@ -41,7 +42,7 @@ def horses_of(owner_id):
     command = f"SELECT * from horses where" \
         f" owner_id = {owner_id}" \
         f" and death_date is NULL"
-    return table_operations.table_to_df(command)
+    return table_operations.query_to_dataframe(command)
 
 
 def add_money(owner_id, amount):
@@ -54,7 +55,7 @@ def add_money(owner_id, amount):
     Return:
         None
     """
-    command = f"SET money = money + {amount} WHERE owner_id = {owner_id}"
+    command = f"SET money = money + {amount} WHERE id = {owner_id}"
     table_operations.update_value('owners', command)
 
 
@@ -72,7 +73,7 @@ def remove_money(owner_id, amount):
     if cur_money < amount:
         raise ValueError(f'{owner_id} only has {cur_money} and so {amount} cannot be'
                          f' removed from their account.')
-    command = f"SET money = money - {amount} WHERE owner_id = {owner_id}"
+    command = f"SET money = money - {amount} WHERE id = {owner_id}"
     table_operations.update_value('owners', command)
 
 
@@ -102,8 +103,8 @@ def money(owner_id):
     Return:
          float. Money the owner has.
     """
-    command = f"SELECT money FROM owners WHERE owner_id = {owner_id}"
-    data = table_operations.table_to_df(command, set_index_from_first_column=False)
+    command = f"SELECT money FROM owners WHERE id = {owner_id}"
+    data = pd.read_sql_query(command, table_operations.db)
     return data.iloc[0]['money']
 
 

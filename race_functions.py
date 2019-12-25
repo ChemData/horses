@@ -15,6 +15,6 @@ def add_race(start_time, distance, purse):
     Returns:
           int. ID of the race.
     """
-    params = {'time': start_time, 'distance': distance, 'total_purse': sum(purse)}
+    params = {'date': start_time, 'distance': distance, 'total_purse': sum(purse)}
     new_id = table_operations.insert_into_table('races', params)
     return new_id
