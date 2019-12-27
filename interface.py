@@ -297,9 +297,25 @@ class TradeBox(QMdiSubWindow):
         self.input_connect()
         self.hide()
 
+        # Set the starting selections
+        self.my_horse = None
+        self.their_horses = {}
+        self.counterparty = None
+
+    def input_connect(self):
+        self.horse_selection.itemClicked.connect(self.main.show_list_horse_info)
+        self.horse_selection.itemClicked.connect(self._keep_horse_selection)
+        self.counterparty_selection.currentIndexChanged.connect(self._populate_horse_list)
+        self.counterparty_selection.currentIndexChanged.connect(self._keep_counterparty_selection)
+        self.buy_radio.toggled.connect(self._populate_horse_list)
+        self.sell_radio.toggled.connect(self._populate_horse_list)
+        self.send_offer_button.clicked.connect(self._offer)
+
     def update(self):
         self._populate_horse_list()
         self._populate_owner_list()
+        self._set_selected_counterparty()
+        self._set_selected_horse()
 
     def _populate_horse_list(self):
         """Add available horses to the list."""
@@ -318,12 +334,7 @@ class TradeBox(QMdiSubWindow):
             item.setData(0, name)
             self.horse_selection.insertItem(1, item)
 
-    def input_connect(self):
-        self.horse_selection.itemClicked.connect(self.main.show_list_horse_info)
-        self.counterparty_selection.currentIndexChanged.connect(self._populate_horse_list)
-        self.buy_radio.toggled.connect(self._populate_horse_list)
-        self.sell_radio.toggled.connect(self._populate_horse_list)
-        self.send_offer_button.clicked.connect(self._offer)
+        self._set_selected_horse()
 
     def _display_link_info(self, url):
         """Display information about the thing that was just clicked on."""
@@ -390,11 +401,46 @@ class TradeBox(QMdiSubWindow):
         """Put owner names in the owner selection dropdown."""
         self.counterparty_selection.clear()
         for i, row in to.get_column('owners', 'name').iterrows():
-            if i != self.game.owner and i != 1:
+            if row['id'] != self.game.owner and row['id'] != 1:
                 item = QtWidgets.QListWidgetItem()
                 item.owner_id = row['id']
                 item.setData(0, row['name'])
+                self.counterparty_selection.blockSignals(True)
                 self.counterparty_selection.addItem(row['name'], userData=row['id'])
+                self.counterparty_selection.blockSignals(False)
+
+    def _keep_horse_selection(self, t):
+        """Store which horse was selected so that it can be recalled later."""
+        buying = self.buy_radio.isChecked()
+        if not buying:
+            self.my_horse = self.horse_selection.currentRow()
+        else:
+            self.their_horses[self.counterparty_selection.currentIndex()] =\
+                self.horse_selection.currentRow()
+
+    def _set_selected_horse(self):
+        """Set the currently selected horse based on what had been previously selected."""
+        if self.buy_radio.isChecked():
+            try:
+                self.horse_selection.setCurrentRow(
+                    self.their_horses[self.counterparty_selection.currentIndex()])
+            except KeyError:
+                pass
+        else:
+            try:
+                self.horse_selection.setCurrentRow(self.my_horse)
+            except TypeError:
+                pass
+
+    def _keep_counterparty_selection(self, t):
+        """Store which counterparty was selected so that it can be recalled later."""
+        if t != -1:
+            self.counterparty = t
+
+    def _set_selected_counterparty(self):
+        """Set the currently selected counterparty to what it was previously."""
+        if self.counterparty is not None:
+            self.counterparty_selection.setCurrentIndex(self.counterparty)
 
 
 class PedigreeWindow(QtWidgets.QMainWindow):
