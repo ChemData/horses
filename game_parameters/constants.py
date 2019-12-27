@@ -14,3 +14,6 @@ with open(os.path.join(folder, 'genes.json'), 'r') as f:
 # Naming
 HORSE_NAME_MAX = 24  # Longest permitted name for a horse
 OWNER_NAME_MAX = 24  # Longest permitted name for an owner
+
+# Event Probabilities
+RACE_PROBABILITY = 0  # Probability that a race will occur each day
