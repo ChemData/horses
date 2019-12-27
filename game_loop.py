@@ -9,6 +9,7 @@ import race_functions as rf
 import owner_functions as of
 import game_initializer
 import phenotype
+from game_parameters.constants import *
 
 
 class Game:
@@ -27,7 +28,7 @@ class Game:
             self._deliver_foals()
             self._kill_horses()
             if not basic:
-                if random.random() >= .1:
+                if random.random() <= RACE_PROBABILITY:
                     self._prepare_for_race()
             self.day += datetime.timedelta(1)
             self.gui.update_day(self.day)
@@ -225,19 +226,32 @@ class Game:
 
         # Add parent information
         if data['dam'] is None:
-            msg += '<p style="text-indent:20px">Dam: Unknown</p>'
+            msg += '<body style="text-indent:20px">Dam: Unknown</body>'
         else:
-            msg += f'<p style="text-indent:20px">Dam: [horses:{data["dam"]}]</p>'
+            msg += f'<body style="text-indent:20px">Dam: [horses:{data["dam"]}]</body>'
         if data['sire'] is None:
-            msg += '<p style="text-indent:20px">Sire: Unknown</p>'
+            msg += '<body style="text-indent:20px">Sire: Unknown</body>'
         else:
-            msg += f'<p style="text-indent:20px">Sire: [horses:{data["sire"]}]</p>'
+            msg += f'<body style="text-indent:20px">Sire: [horses:{data["sire"]}]</body>'
 
-        # Add speed
-        msg += f'<p style="text-indent:20px">Speed: {hf.speed(horse_info=data):.4}</p>'
+        msg += '<br></br>'
 
         # Add owner
-        msg += f'<p style="text-indent:20px">Owner: {data["owner_id"]}</p>'
+        msg += f'<body style="text-indent:0px">Owner: {data["owner_id"]}</body>'
+
+        # Add speed
+        msg += f'<body style="text-indent:0px">Speed: {hf.speed(horse_info=data):.4}</body>'
+
+        # Add race history
+        race_history = hf.race_summary(horse_id).iloc[0]
+        msg += f"Total winnings: ${race_history['winnings']:.2f}"
+        msg += f"<body style='text-indent:20px'>First places: {race_history[1]}</body>"
+        msg += f"<body style='text-indent:20px'>Second places: {race_history[2]}</body>"
+        msg += f"<body style='text-indent:20px'>Third places: {race_history[3]}</body>"
+
+
+
+
 
         return msg
 

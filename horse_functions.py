@@ -249,8 +249,12 @@ def race_summary(horse_ids):
           2nd, and 3rd place wins as well as total price money.
     """
     o_horse_ids = horse_ids
-    if isinstance(horse_ids, int):
+    try:
+        horse_ids = int(horse_ids)
+        o_horse_ids = [horse_ids]
         horse_ids = (horse_ids,)
+    except TypeError:
+        pass
     horse_ids = tuple(horse_ids)
     if len(horse_ids) == 1:
         horse_ids = f'({horse_ids[0]})'
@@ -263,7 +267,7 @@ def race_summary(horse_ids):
           "    race_results " \
           "WHERE " \
           f"    horse_id IN {horse_ids}"
-    data = table_operations.table_to_df(com, set_index_from_first_column=False)
+    data = table_operations.query_to_dataframe(com)
 
     output = pd.DataFrame(index=o_horse_ids)
     output['winnings'] = data.groupby('horse_id')['winnings'].sum()
@@ -279,7 +283,7 @@ def race_summary(horse_ids):
         placing[3] = 0
 
     output = pd.merge(output, placing, how='outer', right_index=True, left_index=True)
-    output['winnings'].fillna(0, inplace=True)
+    output.fillna(0, inplace=True)
     return output
 
 
