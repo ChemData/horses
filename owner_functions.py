@@ -1,8 +1,21 @@
 import random
-import table_operations
+import json
+import os
 import pandas as pd
-from game_parameters import owner_names
 import phenotype
+import table_operations
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    from game_parameters.constants import *
+
+
+try:
+    with(open(os.path.join(PARAMS_FOLDER, 'local_owner_names.json'), 'r')) as f:
+        OWNER_NAMES = json.load(f)
+except FileNotFoundError:
+    with(open(os.path.join(PARAMS_FOLDER, 'owner_names.json'), 'r')) as f:
+        OWNER_NAMES = json.load(f)
 
 
 def pick_race_horses(owner_id, number):

@@ -9,7 +9,10 @@ import race_functions as rf
 import owner_functions as of
 import game_initializer
 import phenotype
-from game_parameters.constants import *
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    from game_parameters.constants import *
 
 
 class Game:

@@ -3,8 +3,6 @@ import numbers
 import sqlite3
 import numpy as np
 import pandas as pd
-#import mysql.connector as mysql
-#from mysql.connector import errorcode
 
 folder = os.path.dirname(__file__)
 db = sqlite3.connect(database=os.path.join(folder, 'game_data.db'))
