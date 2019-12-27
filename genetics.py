@@ -1,6 +1,9 @@
 import hashlib
 import numpy as np
-from game_parameters.constants import *
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    from game_parameters.constants import *
 
 
 """Genetics System.

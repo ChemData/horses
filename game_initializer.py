@@ -3,7 +3,10 @@ import sqlite3
 #import mysql.connector as mysql
 #from mysql.connector import errorcode
 import table_operations
-from game_parameters.constants import *
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    from game_parameters.constants import *
 import game_parameters.parameter_checker
 
 folder = os.path.dirname(__file__)

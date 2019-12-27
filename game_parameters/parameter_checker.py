@@ -1,5 +1,8 @@
 import os
-import game_parameters.constants as c
+try:
+    import game_parameters.local_constants as c
+except ModuleNotFoundError:
+    import game_parameters.constants as c
 
 """
 The goal is to check parameters for correctness. Certain values must be within particular

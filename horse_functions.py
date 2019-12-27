@@ -6,13 +6,17 @@ import pandas as pd
 import table_operations
 import genetics
 import phenotype
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    from game_parameters.constants import *
 
-
-with(open(os.path.join('game_parameters', 'horse_names.txt'), 'r')) as f:
-    HORSE_NAMES = [x.rstrip('\n') for x in f.readlines()]
-
-with(open(os.path.join('game_parameters', 'quick_horse_facts'), 'r')) as f:
-    VALS = json.load(f)
+try:
+    with(open(os.path.join(PARAMS_FOLDER, 'local_horse_names.json'), 'r')) as f:
+        HORSE_NAMES = json.load(f)
+except FileNotFoundError:
+    with(open(os.path.join(PARAMS_FOLDER, 'horse_names.json'), 'r')) as f:
+        HORSE_NAMES = json.load(f)
 
 
 def horse_title(gender, age):
@@ -46,12 +50,15 @@ def make_random_horse(max_date):
     """Add a new random horse to the database."""
 
     output = {}
-    age = int(np.random.random_integers(1, round(VALS['LIFE_MEAN']*.5)))
+    age = int(np.random.random_integers(1, round(LIFE_MEAN*.5)))
     output['birth_date'] = str(max_date - datetime.timedelta(age))
-    death = round(np.random.normal(VALS['LIFE_MEAN'], VALS['LIFE_STD']))
+    death = round(np.random.normal(LIFE_MEAN, LIFE_STD))
     output['expected_death'] = str(max_date - datetime.timedelta(age) + datetime.timedelta(death))
     output['gender'] = np.random.choice(['M', 'F'])
-    output['name'] = np.random.choice(HORSE_NAMES)
+    if output['gender'] == 'M':
+        output['name'] = np.random.choice(HORSE_NAMES['male']+HORSE_NAMES['unisex'])
+    else:
+        output['name'] = np.random.choice(HORSE_NAMES['female'] + HORSE_NAMES['unisex'])
     output['owner_id'] = 1
     output['dna1'] = genetics.random_chromosome()
     output['dna2'] = genetics.random_chromosome()
@@ -87,10 +94,10 @@ def horse_sex(horse1, horse2, date):
     if data.loc[horse1, 'gender'] == data.loc[horse2, 'gender']:
         raise WrongGender('You need a dam and sire to make babies happen.')
 
-    if (date - data.loc[horse1, 'birth_date']).days < VALS['SEXUAL_MATURITY']:
+    if (date - data.loc[horse1, 'birth_date']).days < SEXUAL_MATURITY:
         raise WrongAge(f'{horse1} is too young to have sex.')
 
-    if (date - data.loc[horse2, 'birth_date']).days < VALS['SEXUAL_MATURITY']:
+    if (date - data.loc[horse2, 'birth_date']).days < SEXUAL_MATURITY:
         raise WrongAge(f'{horse2} is too young to have sex.')
 
     lady_horse = data[data['gender'] == 'F'].iloc[0]
@@ -98,7 +105,7 @@ def horse_sex(horse1, horse2, date):
         raise PregnancyIssue(f'{lady_horse.name} is already pregnant.')
     man_horse = data[data['gender'] == 'M'].iloc[0]
 
-    num_days = round(np.random.normal(VALS['GESTATION_MEAN'], VALS['GESTATION_STD']))
+    num_days = round(np.random.normal(GESTATION_MEAN, GESTATION_STD))
     due_date = date + datetime.timedelta(num_days)
     command = f"SET due_date = '{str(due_date)}' WHERE id = {lady_horse.name}"
     table_operations.update_value('horses', command)
@@ -122,7 +129,7 @@ def give_birth(horse, date, name=None):
     foal['owner_id'] = dam['owner_id']
     foal['birth_date'] = str(date)
     foal['expected_death'] = str(date + datetime.timedelta(
-        round(np.random.normal(VALS['LIFE_MEAN'], VALS['LIFE_STD']))))
+        round(np.random.normal(LIFE_MEAN, LIFE_STD))))
     if name is not None:
         foal['name'] = name
     mix_genomes(dam, sire, foal)
