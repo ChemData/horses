@@ -102,7 +102,7 @@ def add_owner(money=0., name=None):
 
     """
     if name is None:
-        name = random.choice(owner_names.OWNER_NAMES)
+        name = random.choice(OWNER_NAMES)
     new_id = table_operations.insert_into_table('owners', {'money': money, 'name': name})
     return new_id
 
@@ -117,7 +117,7 @@ def money(owner_id):
          float. Money the owner has.
     """
     command = f"SELECT money FROM owners WHERE id = {owner_id}"
-    data = pd.read_sql_query(command, table_operations.db)
+    data = table_operations.query_to_dataframe(command)
     return data.iloc[0]['money']
 
 
