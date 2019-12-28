@@ -39,9 +39,8 @@ class Game:
 
     def _deliver_foals(self):
         command = f"SELECT id, name from horses where due_date = '{str(self.day)}'"
-        to_deliver = pd.read_sql_query(command, to.db)
+        to_deliver = to.query_to_dataframe(command)
         for _, horse in to_deliver.iterrows():
-
             if not self.automated:
                 name = input(f"{horse['name']} has given birth to a foal. "
                              f"What would you like it name it?")
@@ -196,7 +195,7 @@ class Game:
 
     def breedable_horses(self):
         """Return an array of horses that can be made to breed."""
-        youngest = str(self.day - datetime.timedelta(hf.VALS['SEXUAL_MATURITY']))
+        youngest = str(self.day - datetime.timedelta(SEXUAL_MATURITY))
         command = f"SELECT * FROM horses where" \
             f" owner_id = {self.owner}" \
             f" and death_date is NULL" \
@@ -275,7 +274,7 @@ class Game:
             command = f"SELECT id from horses WHERE" \
                 f" owner_id = {owner_id}" \
                 f" and death_date is NULL"
-        return list(pd.read_sql_query(command, to.db)['id'].values)
+        return list(to.query_to_dataframe(command)['id'].values)
 
     def add_owners(self, number, starting_cash):
         """Add new owners.
