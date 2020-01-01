@@ -21,7 +21,7 @@ tables = {}
 base_pairs = CHROMOSOME_LENGTH * GENE_LENGTH
 tables['horses'] = """
 CREATE TABLE IF NOT EXISTS horses (
-    id integer PRIMARY KEY,
+    horse_id integer PRIMARY KEY,
     birth_date text NOT NULL,
     death_date text DEFAULT NULL,
     expected_death text NOT NULL,
@@ -38,14 +38,14 @@ CREATE TABLE IF NOT EXISTS horses (
     )"""
 tables['owners'] = """
 CREATE TABLE IF NOT EXISTS owners (
-    id integer PRIMARY KEY,
+    owner_id integer PRIMARY KEY,
     money integer NOT NULL,
     name text NOT NULL
     )"""
 
 tables['races'] = """
 CREATE TABLE IF NOT EXISTS races (
-    id integer PRIMARY KEY,
+    race_id integer PRIMARY KEY,
     date text NOT NULL,
     total_purse integer DEFAULT 0,
     distance float NOT NULL
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS races (
 
 tables['race_results'] = """
 CREATE TABLE IF NOT EXISTS race_results (
-    id integer PRIMARY KEY,
+    result_id integer PRIMARY KEY,
     horse_id integer NOT NULL,
     race_id integer NOT NULL,
     time float NOT NULL,

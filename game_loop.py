@@ -7,7 +7,6 @@ import horse_functions as hf
 import table_operations as to
 import race_functions as rf
 import owner_functions as of
-import game_initializer
 import phenotype
 try:
     from game_parameters.local_constants import *
@@ -18,45 +17,50 @@ except ModuleNotFoundError:
 class Game:
     owner = 2
 
-    def __init__(self, start_day, gui=False):
+    def __init__(self, start_day, gui=False, restart=True):
         self.day = pd.to_datetime(start_day)
         if not gui:
-            gui = BasicPrinter()
+            gui = BasicPrinter(self)
         self.gui = gui
         self.automated = True
+        if restart:
+            import game_initializer
 
     def run_days(self, number, basic=False):
         """Run the simulation for a number of days."""
         for n in range(number):
+            self._breed_horses()
             self._deliver_foals()
             self._kill_horses()
             if not basic:
                 if random.random() <= RACE_PROBABILITY:
-                    self._prepare_for_race()
+                    if self.automated:
+                        self.race(horse_ids='random')
+                    else:
+                        self._prepare_for_race()
             self.day += datetime.timedelta(1)
             self.gui.update_day(self.day)
             self.gui.update_money()
 
     def _deliver_foals(self):
-        command = f"SELECT id, name from horses where due_date = '{str(self.day)}'"
+        command = f"SELECT horse_id, name from horses where due_date = '{str(self.day)}'"
         to_deliver = to.query_to_dataframe(command)
         for _, horse in to_deliver.iterrows():
             if not self.automated:
                 name = input(f"{horse['name']} has given birth to a foal. "
                              f"What would you like it name it?")
             else:
-                name = np.random.choice(hf.HORSE_NAMES)
-                foal_id = hf.give_birth(horse['id'], self.day, name)
+                foal_id = hf.give_birth(horse['horse_id'], self.day, name=None)
                 self.gui.display_message(
-                    f"[horses:{horse['id']}] has given birth to a foal named [horses:{foal_id}].")
+                    f"[horses:{horse['horse_id']}] has given birth to a foal named [horses:{foal_id}].")
 
     def _kill_horses(self):
         """Kill any horses who are due to die this day."""
-        command = f"SELECT id, name from horses where expected_death = '{str(self.day)}'"
+        command = f"SELECT horse_id, name from horses where expected_death = '{str(self.day)}'"
         to_kill = pd.read_sql_query(command, to.db)
         for _, horse in to_kill.iterrows():
-            self.gui.display_message(f"[horses:{horse['id']}] has died. F.")
-            hf.kill_horse(horse['id'], self.day)
+            self.gui.display_message(f"[horses:{horse['horse_id']}] has died. F.")
+            hf.kill_horse(horse['horse_id'], self.day)
 
     def _prepare_for_race(self):
         """Create a new race and invite the owners to send horses."""
@@ -103,7 +107,7 @@ class Game:
             List. The numbers of the top 3 finishers.
         """
         if horse_ids == 'random':
-            horses = self.living_horses(self.owner)
+            horses = self.living_horses(owner_id=None)
             horse_ids = np.random.choice(horses, 8, replace=False)
         horse_ids = np.array(horse_ids)
         if len(horse_ids) < 1:
@@ -162,10 +166,10 @@ class Game:
             return
         options = self.breedable_horses()
         try:
-            fem = np.random.choice(options.loc[options['gender'] == 'F'].index)
-            male = np.random.choice(options.loc[options['gender'] == 'M'].index)
+            fem = np.random.choice(options.loc[options['gender'] == 'F', 'horse_id'].values)
+            male = np.random.choice(options.loc[options['gender'] == 'M', 'horse_id'].values)
             hf.horse_sex(fem, male, self.day)
-        except ValueError:
+        except (ValueError, hf.PregnancyIssue):
             pass
 
     def str_to_datetime(self, str):
@@ -187,23 +191,35 @@ class Game:
         self.automated = True
         self.reset()
         self.random_startup()
-        self.run_days(days, basic=True)
+        self.run_days(days, basic=False)
         owners = of.owner_list()
         for h in self.living_horses():
             hf.trade_horse(h, np.random.choice(owners, size=1)[0])
         self.automated = False
 
-    def breedable_horses(self):
-        """Return an array of horses that can be made to breed."""
+    def breedable_horses(self, owner=None):
+        """Return an array of horses that can be made to breed.
+
+        Args:
+            owner (int or None): The ID of the owner to get available horses for. If None,
+                will return horses for all owners.
+
+        """
         youngest = str(self.day - datetime.timedelta(SEXUAL_MATURITY))
-        command = f"SELECT * FROM horses where" \
-            f" owner_id = {self.owner}" \
-            f" and death_date is NULL" \
-            f" and due_date is NULL" \
-            f" and birth_date <= '{youngest}'"
+        if owner is None:
+            command = f"SELECT * FROM horses where" \
+                f" death_date is NULL" \
+                f" and due_date is NULL" \
+                f" and birth_date <= '{youngest}'"
+        else:
+            command = f"SELECT * FROM horses where" \
+                f" owner_id = {owner}" \
+                f" and death_date is NULL" \
+                f" and due_date is NULL" \
+                f" and birth_date <= '{youngest}'"
         horses = to.query_to_dataframe(command)
         horses['age'] = horses['birth_date'].apply(self.display_age)
-        return horses[['name', 'id', 'gender', 'age']]
+        return horses[['name', 'horse_id', 'gender', 'age']]
 
     def display_age(self, birthday):
         """Converts a birthday into an approximate age."""
@@ -224,7 +240,7 @@ class Game:
             verb = 'is'
         else:
             verb = 'was'
-        msg = f"[horses:{data['id']}] {verb} a {color} {title} of age {self.display_age(data['birth_date'])}."
+        msg = f"[horses:{data['horse_id']}] {verb} a {color} {title} of age {self.display_age(data['birth_date'])}."
 
         # Add parent information
         if data['dam'] is None:
@@ -268,13 +284,13 @@ class Game:
             List. List of all ids of horses owned.
         """
         if owner_id is None:
-            command = f"SELECT id from horses WHERE" \
+            command = f"SELECT horse_id from horses WHERE" \
                 f" death_date is NULL"
         else:
-            command = f"SELECT id from horses WHERE" \
+            command = f"SELECT horse_id from horses WHERE" \
                 f" owner_id = {owner_id}" \
                 f" and death_date is NULL"
-        return list(to.query_to_dataframe(command)['id'].values)
+        return list(to.query_to_dataframe(command)['horse_id'].values)
 
     def add_owners(self, number, starting_cash):
         """Add new owners.
@@ -293,6 +309,7 @@ class Game:
                 of.add_owner(0, 'Wild')
             else:
                 of.add_owner(starting_cash)
+
 
 
 class BasicPrinter:
