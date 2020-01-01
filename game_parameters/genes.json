@@ -18,7 +18,7 @@
       "E"
     ],
     "broken": "e",
-    "cutoff": 0.9
+    "cutoff": 0.5
   },
   "agouti": {
     "pos": 5,
@@ -28,7 +28,8 @@
     "ranges": [
       0.2, 0.8
     ],
-    "broken": "a"
+    "broken": "a",
+    "cutoff": 0.5
   },
   "grey": {
     "pos": 6,
@@ -45,49 +46,56 @@
     "ranges": [
       0.1
     ],
-    "broken": "cr"
+    "broken": "cr",
+    "cutoff": 0.8
   },
   "dun": {
     "pos": 8,
     "alleles": [
       "D"
     ],
-    "broken": "d"
+    "broken": "d",
+    "cutoff": 0.8
   },
   "champagne": {
     "pos": 9,
     "alleles": [
       "Ch"
     ],
-    "broken": "ch"
+    "broken": "ch",
+    "cutoff": 0.9
   },
   "dapple": {
     "pos": 10,
     "alleles": [
       "Z"
     ],
-    "broken": "z"
+    "broken": "z",
+    "cutoff": 0.7
   },
   "flaxen": {
     "pos": 11,
     "alleles": [
       "F"
     ],
-    "broken": "f"
+    "broken": "f",
+    "cutoff": 0.7
   },
   "sooty": {
     "pos": 12,
     "alleles": [
       "Sty"
     ],
-    "broken": "sty"
+    "broken": "sty",
+    "cutoff": 0.8
   },
   "rabicano": {
     "pos": 13,
     "alleles": [
       "Rb"
     ],
-    "broken": "rb"
+    "broken": "rb",
+    "cutoff": 0.7
   },
   "kit": {
     "pos": 14,
