@@ -1,7 +1,7 @@
 import datetime
 import json
 import numpy as np
-import table_operations
+import table_operations as to
 
 
 def add_race(start_time, distance, purse):
@@ -16,5 +16,15 @@ def add_race(start_time, distance, purse):
           int. ID of the race.
     """
     params = {'date': start_time, 'distance': distance, 'total_purse': sum(purse)}
-    new_id = table_operations.insert_into_table('races', params)
+    new_id = to.insert_into_table('races', params)
     return new_id
+
+
+def races_per_day():
+    """Return the average number of races per day that have been run.
+    """
+
+    races = to.query_to_dataframe("SELECT date FROM races")
+
+    return len(races)/\
+           ((races['date'].values[-1] - races['date'].values[0])/np.timedelta64(1, 'D')+1)

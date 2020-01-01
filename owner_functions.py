@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import phenotype
 import table_operations
+import horse_functions
+import race_functions
 try:
     from game_parameters.local_constants import *
 except ModuleNotFoundError:
@@ -40,7 +42,7 @@ def pick_race_horses(owner_id, number):
     horses['speed'] = horses.apply(calc_speed, axis=1)
     horses.sort_values(by='speed', inplace=True)
 
-    return list(horses.iloc[:min(number, len(horses))]['id'].values)
+    return list(horses.iloc[:min(number, len(horses))]['horse_id'].values)
 
 
 def horses_of(owner_id):
@@ -68,7 +70,7 @@ def add_money(owner_id, amount):
     Return:
         None
     """
-    command = f"SET money = money + {amount} WHERE id = {owner_id}"
+    command = f"SET money = money + {amount} WHERE owner_id = {owner_id}"
     table_operations.update_value('owners', command)
 
 
@@ -86,7 +88,7 @@ def remove_money(owner_id, amount):
     if cur_money < amount:
         raise ValueError(f'{owner_id} only has {cur_money} and so {amount} cannot be'
                          f' removed from their account.')
-    command = f"SET money = money - {amount} WHERE id = {owner_id}"
+    command = f"SET money = money - {amount} WHERE owner_id = {owner_id}"
     table_operations.update_value('owners', command)
 
 
@@ -116,7 +118,7 @@ def money(owner_id):
     Return:
          float. Money the owner has.
     """
-    command = f"SELECT money FROM owners WHERE id = {owner_id}"
+    command = f"SELECT money FROM owners WHERE owner_id = {owner_id}"
     data = table_operations.query_to_dataframe(command)
     return data.iloc[0]['money']
 
@@ -132,13 +134,35 @@ def owner_list():
     return owners
 
 
-def evaluate_trade(owner_id, horse_id, amount, buy=True):
+def horse_value(horse_id, day):
+    """Return the estimated value of a horse.
+
+    Currently the value is purely based on the number of races the horse could be
+    expected to run and how much they are expected to earn per race.
+
+    Args:
+        horse_id (int): ID of the horse to evaluate.
+        day (datetime): Current day.
+
+    Returns:
+        float. How many dollars the horse is estimated to be worth.
+    """
+    current_age = horse_functions.age(horse_id, day).loc[0, 'age']
+    max_age, _ = horse_functions.expected_race_life()
+    remaining_life = max(0, max_age - current_age)
+
+    expected_races = remaining_life/race_functions.races_per_day()
+    return expected_races * horse_functions.expected_winnings(horse_id)
+
+
+def evaluate_trade(owner_id, horse_id, amount, date, buy=True):
     """Call upon the owner to evaluate the proposed trade.
 
     Args:
         owner_id (int): ID of the owner.
         horse_id (int): ID of the horse that is being traded.
         amount (int): Amount of money proposed for the trade.
+        date (datetime): Current day.
         buy (Bool): If True, owner is being offered a horse to buy.
 
     Return:
@@ -150,9 +174,10 @@ def evaluate_trade(owner_id, horse_id, amount, buy=True):
     if buy and amount > money(owner_id):
         return 'soft no'
     horse = table_operations.get_rows('horses', horse_id).iloc[0]
-    value = 100
+
+    value = horse_value(horse_id, date)
     if horse['gender'] == 'F':
-        value += 400
+        value *= 1.5
 
     diff = value - amount
 
@@ -163,4 +188,3 @@ def evaluate_trade(owner_id, horse_id, amount, buy=True):
         return 'yes'
     else:
         return 'no'
-

@@ -10,7 +10,6 @@ folder = os.path.dirname(__file__)
 with open(os.path.join(folder, 'genes.json'), 'r') as f:
     GENES = json.load(f)
 
-
 # Naming
 HORSE_NAME_MAX = 24  # Longest permitted name for a horse
 OWNER_NAME_MAX = 24  # Longest permitted name for an owner
@@ -24,3 +23,6 @@ GESTATION_MEAN = 340  # Mean time (in days) that gestation takes
 GESTATION_STD = 15  # Standard deviation of gestation time
 LIFE_MEAN = 9490  # Mean lifespan (in days)
 LIFE_STD = 730  # Lifespan standard deviation
+
+# File paths
+PARAMS_FOLDER = os.path.dirname(__file__)

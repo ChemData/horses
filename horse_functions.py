@@ -18,6 +18,9 @@ except FileNotFoundError:
     with(open(os.path.join(PARAMS_FOLDER, 'horse_names.json'), 'r')) as f:
         HORSE_NAMES = json.load(f)
 
+MALE_NAMES = HORSE_NAMES['male'] + HORSE_NAMES['unisex']
+FEMALE_NAMES = HORSE_NAMES['female'] + HORSE_NAMES['unisex']
+
 
 def horse_title(gender, age):
     """Return the title of a horse based on its age and gender."""
@@ -74,7 +77,7 @@ def add_horse(horse_params):
 
 def trade_horse(horse_id, new_owner_id):
     """Transfer owndership of a horse from one owner to another."""
-    command = f"SET owner_id = {new_owner_id} WHERE id = {horse_id}"
+    command = f"SET owner_id = {new_owner_id} WHERE horse_id = {horse_id}"
     table_operations.update_value('horses', command)
 
 
@@ -89,7 +92,7 @@ def horse_sex(horse1, horse2, date):
         date (datetime.date): Day on which this is occurring.
     """
     data = table_operations.get_rows('horses', [horse1, horse2])
-    data.set_index('id', inplace=True)
+    data.set_index('horse_id', inplace=True)
 
     if data.loc[horse1, 'gender'] == data.loc[horse2, 'gender']:
         raise WrongGender('You need a dam and sire to make babies happen.')
@@ -107,15 +110,23 @@ def horse_sex(horse1, horse2, date):
 
     num_days = round(np.random.normal(GESTATION_MEAN, GESTATION_STD))
     due_date = date + datetime.timedelta(num_days)
-    command = f"SET due_date = '{str(due_date)}' WHERE id = {lady_horse.name}"
+    command = f"SET due_date = '{str(due_date)}' WHERE horse_id = {lady_horse.name}"
     table_operations.update_value('horses', command)
 
-    command = f"SET impregnated_by = '{man_horse.name}' WHERE id = {lady_horse.name}"
+    command = f"SET impregnated_by = '{man_horse.name}' WHERE horse_id = {lady_horse.name}"
     table_operations.update_value('horses', command)
 
 
 def give_birth(horse, date, name=None):
-    """Make a horse give birth to a pony."""
+    """Make a horse give birth to a pony.
+
+    Args:
+        horse (int): ID of the pregnant horse.
+        date (datetime): Date of birth.
+        name (str or None): Name of the new horse. If None, will use a random name
+            appropriate to the foal's sex.
+
+    """
     dam = table_operations.get_rows('horses', horse).iloc[0]
 
     if dam['impregnated_by'] is None:
@@ -124,21 +135,27 @@ def give_birth(horse, date, name=None):
     sire = table_operations.get_rows('horses', dam['impregnated_by']).iloc[0]
 
     foal = make_random_horse(date)
-    foal['dam'] = dam['id']
-    foal['sire'] = sire['id']
+    foal['dam'] = dam['horse_id']
+    foal['sire'] = sire['horse_id']
     foal['owner_id'] = dam['owner_id']
     foal['birth_date'] = str(date)
     foal['expected_death'] = str(date + datetime.timedelta(
         round(np.random.normal(LIFE_MEAN, LIFE_STD))))
     if name is not None:
         foal['name'] = name
+    else:
+        if foal['gender'] == 'F':
+            foal['name'] = np.random.choice(FEMALE_NAMES, 1)[0]
+        else:
+            foal['name'] = np.random.choice(MALE_NAMES, 1)[0]
+
     mix_genomes(dam, sire, foal)
     new_id = add_horse(foal)
 
-    command = f"SET impregnated_by = NULL WHERE id = {horse}"
+    command = f"SET impregnated_by = NULL WHERE horse_id = {horse}"
     table_operations.update_value('horses', command)
 
-    command = f"SET due_date = NULL WHERE id = {horse}"
+    command = f"SET due_date = NULL WHERE horse_id = {horse}"
     table_operations.update_value('horses', command)
 
     return new_id
@@ -160,7 +177,7 @@ def mix_genomes(dam, sire, foal):
     foal['dna2'] = genetics.mix_chromosomes(sire['dna1'], sire['dna2'])
 
 
-def pedigree(horse, max_depth=3):
+def pedigree(horse, max_depth=3, base_depth=0):
     """Return the ancestors of the specified horse.
 
     Args:
@@ -176,9 +193,11 @@ def pedigree(horse, max_depth=3):
     data = table_operations.get_rows('horses', horse).iloc[0]
     output = {}
     output['name'] = data['name']
-    output['id'] = data.name
-    output['sire'] = pedigree(data['sire'], max_depth-1)
-    output['dam'] = pedigree(data['dam'], max_depth-1)
+    output['id'] = data['horse_id']
+    output['depth'] = base_depth
+    if max_depth > 0:
+        output['sire'] = pedigree(data['sire'], max_depth-1, base_depth+1)
+        output['dam'] = pedigree(data['dam'], max_depth-1, base_depth+1)
     return output
 
 
@@ -189,7 +208,7 @@ def kill_horse(horse, date):
         horse (int): ID of the horse to kill.
         date (datetime.date): Day of death.
     """
-    command = f"SET death_date = '{str(date)}' WHERE id = {horse}"
+    command = f"SET death_date = '{str(date)}' WHERE horse_id = {horse}"
     table_operations.update_value('horses', command)
 
 
@@ -245,6 +264,28 @@ def coat(horse_id=None, horse_info=None):
     return phenotype.base_color(horse_info['dna1'], horse_info['dna2'])
 
 
+def age(horse_ids, date):
+    """Return the ages of some horses.
+
+    args:
+        horse_ids (int or list): IDs of the horses of interest.
+        date (datetime): Current day.
+
+    returns:
+        pd.DataFrame. One column is horse_ids, the other is ages.
+    """
+    date = pd.to_datetime(date)
+    try:
+        horse_ids = int(horse_ids)
+        query = f"SELECT birth_date, horse_id FROM horses WHERE horse_id = {horse_ids}"
+    except ValueError:
+        horse_ids = tuple(horse_ids)
+        query = f"SELECT birth_date, horse_id FROM horses WHERE horse_id IN {horse_ids}"
+    ages = table_operations.query_to_dataframe(query)
+    ages['age'] = ages['birth_date'].apply(lambda x: (date - x)/np.timedelta64(1, 'D'))
+    return ages[['horse_id', 'age']].copy()
+
+
 def race_summary(horse_ids):
     """Return a summary of the race performance of the provided horses.
 
@@ -279,6 +320,11 @@ def race_summary(horse_ids):
     output = pd.DataFrame(index=o_horse_ids)
     output['winnings'] = data.groupby('horse_id')['winnings'].sum()
 
+    # Add the number of races run
+    number = data.groupby('horse_id').apply(len)
+    number.name = 'races run'
+    output = pd.merge(output, number, how='outer', right_index=True, left_index=True)
+
     data = data[data['place'] <= 3]
     placing = data.groupby(['horse_id', 'place'])['place'].count().unstack(fill_value=0)
 
@@ -288,17 +334,73 @@ def race_summary(horse_ids):
         placing[2] = 0
     if 3 not in placing.columns:
         placing[3] = 0
-
     output = pd.merge(output, placing, how='outer', right_index=True, left_index=True)
+
     output.fillna(0, inplace=True)
     return output
 
 
-class WrongGender(Exception):
+def expected_race_life():
+    """Return the age (in days) and uncertainty at which a horse can expect to run its last race."""
+    com = """
+    SELECT h.horse_id, r.date, h.birth_date
+    FROM race_results rr
+        LEFT OUTER JOIN races r ON (rr.race_id = r.race_id)
+        LEFT OUTER JOIN horses h ON (rr.horse_id = h.horse_id);
+    """
+    race_dates = table_operations.query_to_dataframe(com)
+    race_dates.drop_duplicates('horse_id', keep='last', inplace=True)
+    race_dates['age'] = race_dates['date'] - race_dates['birth_date']
+    race_dates['age'] = race_dates['age'].apply(lambda x: x/np.timedelta64(1, 'D'))
+    return race_dates['age'].mean(), race_dates['age'].std()
+
+
+def expected_winnings(horse_id):
+    """Return how much money a horse is expected to earn per race.
+
+    This will take into account the horse's past performance and the performance of their
+    parents.
+
+    Args:
+        horse_id ( int): ID of the horse to determine value for.
+
+    Return:
+          float. The amount this horse would be expected to win per race.
+    """
+
+    ped = pedigree(horse_id, max_depth=2)
+    races = race_summary(all_values(ped, 'id'))
+    races['depth'] = all_values(ped, 'depth')
+    races['$ per race'] = (races['winnings']/races['races run']).fillna(0)
+    races['weight'] = .25**races['depth']*races['races run']
+    races['n weight'] = races['weight']/races['weight'].sum()
+    return (races['n weight'] * races['$ per race']).sum()
+
+
+def all_values(dictionary, key):
+    """Return all values in a dictionary (and sub dictionaries) associated with the key.
+
+    Args:
+        dictionary (dict): Dictionary to get values from.
+        key (anything): Dictionary key to get associated values for.
+
+    Return:
+        list. All values associated with key in dictionary and subdictionaries.
+    """
+    output = []
+    for k, v in dictionary.items():
+        if isinstance(v, dict):
+            output += all_values(v, key)
+        if k == key:
+            output += [v]
+    return output
+
+
+class WrongGender(ValueError):
     """Called when the provided horse is the wrong gender."""
 
 
-class WrongAge(Exception):
+class WrongAge(ValueError):
     """Called when the provided horse is the wrong age."""
 
 

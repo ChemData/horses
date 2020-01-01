@@ -141,18 +141,18 @@ class BreedingBox(QMdiSubWindow):
 
     def _populate_breeding_lists(self):
         """Add available horses to the list of mares and sires to breed."""
-        horses = self.main.game.breedable_horses()
+        horses = self.main.game.breedable_horses(self.game.owner)
         self.dam_selection.clear()
         for i, dam in horses[horses['gender'] == 'F'].iterrows():
             item = QtWidgets.QListWidgetItem()
-            item.horse_id = dam['id']
+            item.horse_id = dam['horse_id']
             item.setData(0, f"{dam['name']}")
             self.dam_selection.insertItem(1, item)
 
         self.sire_selection.clear()
         for i, sire in horses[horses['gender'] == 'M'].iterrows():
             item = QtWidgets.QListWidgetItem()
-            item.horse_id = sire['id']
+            item.horse_id = sire['horse_id']
             item.setData(0, f"{sire['name']}")
             self.sire_selection.insertItem(1, item)
 
@@ -374,7 +374,7 @@ class TradeBox(QMdiSubWindow):
             return
 
         counterparty = self.counterparty_selection.currentData()
-        decision = of.evaluate_trade(counterparty, horse, price, not buying)
+        decision = of.evaluate_trade(counterparty, horse, price, self.main.game.day, not buying)
         if decision == 'soft no':
             self.main.display_message("I'm afraid I can't afford that.")
         elif decision == 'no':
@@ -401,12 +401,12 @@ class TradeBox(QMdiSubWindow):
         """Put owner names in the owner selection dropdown."""
         self.counterparty_selection.clear()
         for i, row in to.get_column('owners', 'name').iterrows():
-            if row['id'] != self.game.owner and row['id'] != 1:
+            if row['owner_id'] != self.game.owner and row['owner_id'] != 1:
                 item = QtWidgets.QListWidgetItem()
-                item.owner_id = row['id']
+                item.owner_id = row['owner_id']
                 item.setData(0, row['name'])
                 self.counterparty_selection.blockSignals(True)
-                self.counterparty_selection.addItem(row['name'], userData=row['id'])
+                self.counterparty_selection.addItem(row['name'], userData=row['owner_id'])
                 self.counterparty_selection.blockSignals(False)
 
     def _keep_horse_selection(self, t):
