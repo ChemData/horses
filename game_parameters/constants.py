@@ -14,6 +14,13 @@ except FileNotFoundError:
     with open(os.path.join(folder, 'genes.json'), 'r') as f:
         GENES = json.load(f)
 
+try:
+    with open(os.path.join(folder, 'local_buildings.json'), 'r') as f:
+        BUILDINGS = json.load(f)
+except FileNotFoundError:
+    with open(os.path.join(folder, 'buildings.json'), 'r') as f:
+        BUILDINGS = json.load(f)
+
 # Naming
 HORSE_NAME_MAX = 24  # Longest permitted name for a horse
 OWNER_NAME_MAX = 24  # Longest permitted name for an owner
@@ -30,3 +37,9 @@ LIFE_STD = 730  # Lifespan standard deviation
 
 # File paths
 PARAMS_FOLDER = os.path.dirname(__file__)
+
+# Estates
+STARTING_MONEY = 100000  # How much money each player starts with
+INIT_ESTATE_SIZE = 100  # Starting size of estates in hectares
+PASTURE_AMT = 5  # Hectares of pasture needed per horse
+LAND_COST = 1000  # Cost to buy one hectare of open land

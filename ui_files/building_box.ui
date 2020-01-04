@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>553</width>
+    <height>814</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QLabel" name="box_name">
+   <property name="geometry">
+    <rect>
+     <x>190</x>
+     <y>10</y>
+     <width>161</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>16</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Estate Buildings</string>
+   </property>
+  </widget>
+  <widget class="QTabWidget" name="disp_tab">
+   <property name="geometry">
+    <rect>
+     <x>60</x>
+     <y>90</y>
+     <width>421</width>
+     <height>341</height>
+    </rect>
+   </property>
+   <property name="currentIndex">
+    <number>3</number>
+   </property>
+   <widget class="QWidget" name="stable_tab">
+    <attribute name="title">
+     <string>Stables</string>
+    </attribute>
+   </widget>
+   <widget class="QWidget" name="house_tab">
+    <attribute name="title">
+     <string>Housing</string>
+    </attribute>
+   </widget>
+   <widget class="QWidget" name="misc_tab">
+    <attribute name="title">
+     <string>Misc.</string>
+    </attribute>
+   </widget>
+   <widget class="QWidget" name="land_tab">
+    <attribute name="title">
+     <string>Land</string>
+    </attribute>
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>60</y>
+       <width>41</width>
+       <height>15</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Pasture</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="hectare_input">
+     <property name="geometry">
+      <rect>
+       <x>210</x>
+       <y>70</y>
+       <width>111</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <property name="maximum">
+      <number>1000</number>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="buy_land_button">
+     <property name="geometry">
+      <rect>
+       <x>210</x>
+       <y>40</y>
+       <width>51</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Buy</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="sell_land_button">
+     <property name="geometry">
+      <rect>
+       <x>270</x>
+       <y>40</y>
+       <width>51</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Sell</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="free_land">
+     <property name="geometry">
+      <rect>
+       <x>130</x>
+       <y>60</y>
+       <width>47</width>
+       <height>15</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string> 0 Ha</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="land_price">
+     <property name="geometry">
+      <rect>
+       <x>60</x>
+       <y>60</y>
+       <width>61</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>$ ?/Ha</string>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

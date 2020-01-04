@@ -7,6 +7,7 @@ import horse_functions as hf
 import table_operations as to
 import race_functions as rf
 import owner_functions as of
+import estate
 import phenotype
 try:
     from game_parameters.local_constants import *
@@ -183,7 +184,8 @@ class Game:
     def random_startup(self):
         """Adds some random data to tables to get the game started."""
         hf.make_random_horses(50, self.day)
-        self.add_owners(5, 1000)
+        self.add_owners(5, STARTING_MONEY)
+        self.estate = estate.Estate(self.owner)
 
     def simulate_horse_population(self, days):
         """Clear all horses. Create an initial population of 50 horses and let them
@@ -266,11 +268,6 @@ class Game:
         msg += f"<body style='text-indent:20px'>First places: {race_history[1]}</body>"
         msg += f"<body style='text-indent:20px'>Second places: {race_history[2]}</body>"
         msg += f"<body style='text-indent:20px'>Third places: {race_history[3]}</body>"
-
-
-
-
-
         return msg
 
     def living_horses(self, owner_id=None):
