@@ -1,0 +1,42 @@
+{
+  "small_stable": {
+    "name": "Small Stable",
+    "type": "stable",
+    "cost": 5000,
+    "size": 3,
+    "horse_capacity": 5
+  },
+  "medium_stable": {
+    "name": "Medium Stable",
+    "type": "stable",
+    "cost": 25000,
+    "size": 6,
+    "horse_capacity": 20
+  },
+  "large_stable": {
+    "name": "Large Stable",
+    "type": "stable",
+    "cost": 80000,
+    "size": 9,
+    "horse_capacity": 50
+  },
+  "cottage": {
+    "name": "Cottage",
+    "type": "housing",
+    "cost": 2000,
+    "size": 4,
+    "person_capacity": 2
+  },
+  "lodge": {
+    "name": "Lodge",
+    "type": "housing",
+    "cost": 30000,
+    "size": 20,
+    "person_capacity": 20
+  },
+  "swimming_pool" : {
+    "name": "swimming pool",
+    "cost": 50000,
+    "size": 10
+  }
+}

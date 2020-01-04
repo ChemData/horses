@@ -324,6 +324,8 @@ def race_summary(horse_ids):
     number = data.groupby('horse_id').apply(len)
     number.name = 'races run'
     output = pd.merge(output, number, how='outer', right_index=True, left_index=True)
+    if 'races run' not in output.columns:
+        output['races run'] = 0
 
     data = data[data['place'] <= 3]
     placing = data.groupby(['horse_id', 'place'])['place'].count().unstack(fill_value=0)

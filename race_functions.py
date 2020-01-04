@@ -25,6 +25,7 @@ def races_per_day():
     """
 
     races = to.query_to_dataframe("SELECT date FROM races")
-
+    if len(races) == 0:
+        return 0.01
     return len(races)/\
            ((races['date'].values[-1] - races['date'].values[0])/np.timedelta64(1, 'D')+1)

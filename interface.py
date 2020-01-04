@@ -3,13 +3,18 @@ import os
 import re
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore
-from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QMdiArea
+from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QMdiArea, QLabel, QWidget, QPushButton
 from PyQt5.QtGui import QFont
 from game_loop import Game
 import table_operations as to
 import owner_functions as of
 import horse_functions as hf
 import text_operations as text
+from estate import NotEnoughLand, InsufficientFunds
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    from game_parameters.constants import *
 
 
 class MainScreen(QtWidgets.QMainWindow):
@@ -20,12 +25,13 @@ class MainScreen(QtWidgets.QMainWindow):
         uic.loadUi(os.path.join('ui_files', 'main_screen.ui'), self)
 
         self.game = Game('20110101', self)
+        self.start_game()
 
         self._setup_sub_windows()
 
         self.input_connect()
         self.show()
-        self.start_game()
+
 
         sys.exit(self.app.exec())
 
@@ -34,11 +40,14 @@ class MainScreen(QtWidgets.QMainWindow):
 
         self.pedigree_window = PedigreeWindow(self, self.game)
 
-        self.breeding_window = BreedingBox(self, self.game)
-        self.mdi.addSubWindow(self.breeding_window)
+        self.breeding_box = BreedingBox(self, self.game)
+        self.mdi.addSubWindow(self.breeding_box)
 
-        self.trading_window = TradeBox(self, self.game)
-        self.mdi.addSubWindow(self.trading_window)
+        self.trading_box = TradeBox(self, self.game)
+        self.mdi.addSubWindow(self.trading_box, )
+
+        self.building_box = BuildingBox(self, self.game)
+        self.mdi.addSubWindow(self.building_box)
 
     def start_game(self):
         self.game.simulate_horse_population(50)
@@ -50,9 +59,10 @@ class MainScreen(QtWidgets.QMainWindow):
         self.day_amount_entry.valueChanged.connect(self._change_n_days_text)
         self.message_box.anchorClicked.connect(self.display_link_info)
         self.entity_info_box.anchorClicked.connect(self.display_link_info)
-        self.actionBreeding.triggered.connect(self._show_breeding_window)
-        self.actionTrading.triggered.connect(self._show_trading_window)
+        self.actionBreeding.triggered.connect(self._show_breeding_box)
+        self.actionTrading.triggered.connect(self._show_trading_box)
         self.actionPedigree.triggered.connect(self._show_pedigree_window)
+        self.actionBuildings.triggered.connect(self._show_building_box)
 
     def _next_day_push(self):
         self.game.run_days(1)
@@ -74,16 +84,22 @@ class MainScreen(QtWidgets.QMainWindow):
         money = of.money(self.game.owner)
         self.money_display.setText(f'Cash: ${money}')
 
-    def _show_breeding_window(self):
-        self.trading_window.hide()
-        self.breeding_window.show()
-        self.breeding_window.update()
+    def _show_breeding_box(self):
+        self.trading_box.hide()
+        self.breeding_box.show()
+        self.breeding_box.update()
 
-    def _show_trading_window(self):
-        self.breeding_window.hide()
-        self.trading_window.show()
+    def _show_trading_box(self):
+        self.breeding_box.hide()
+        self.trading_box.show()
         #self.trading_window.setGeometry(20, 0, 500, 500)
-        self.trading_window.update()
+        self.trading_box.update()
+
+    def _show_building_box(self):
+        self.trading_box.hide()
+        self.breeding_box.hide()
+        self.building_box.show()
+        self.building_box.update()
 
     def _show_pedigree_window(self):
         self.pedigree_window.show()
@@ -369,6 +385,11 @@ class TradeBox(QMdiSubWindow):
 
         buying = self.buy_radio.isChecked()
 
+        if buying and self.game.estate.horse_capacity <\
+                len(self.game.living_horses(self.game.owner)) + 1:
+            self.main.display_message("Your estate cannot fit any more horses.")
+            return
+
         if buying and price > of.money(self.game.owner):
             self.main.display_message("You don't have that much money and debt hasn't been implemented.")
             return
@@ -505,6 +526,142 @@ class PedigreeWindow(QtWidgets.QMainWindow):
 
     def input_connect(self):
         pass
+
+
+class BuildingBox(QMdiSubWindow):
+    ROW_SPACING = 40  # Offset of each row
+
+    def __init__(self, main_screen, game):
+        self.main = main_screen
+        self.game = game
+        super(BuildingBox, self).__init__()
+        uic.loadUi(os.path.join('ui_files', 'building_box.ui'), self)
+        self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+        self._create_layout()
+        self.input_connect()
+        self.hide()
+
+    def _create_layout(self):
+        """Create the layout of information and buttons to allow for buying/selling
+        buildings."""
+        stable_pos = self.ROW_SPACING
+        house_pos = self.ROW_SPACING
+        misc_pos = self.ROW_SPACING
+        for name, info in BUILDINGS.items():
+            if info.get('type') == 'stable':
+                row = BuildingRow(self.stable_tab, info, name, self.main)
+                row.move(0, stable_pos)
+                stable_pos += self.ROW_SPACING
+            elif info.get('type') == 'housing':
+                row = BuildingRow(self.house_tab, info, name, self.main)
+                row.move(0, house_pos)
+                house_pos += self.ROW_SPACING
+            else:
+                row = BuildingRow(self.misc_tab, info, name, self.main)
+                row.move(0, misc_pos)
+                misc_pos += self.ROW_SPACING
+        self.land_price.setText(f'${LAND_COST}/Ha')
+
+    def update(self):
+        tab = self.disp_tab.currentWidget()
+        if tab.objectName() == 'land_tab':
+            self._update_land_tab()
+        else:
+            for row in tab.children():
+                row.update()
+
+    def input_connect(self):
+        self.disp_tab.currentChanged.connect(self.update)
+        self.buy_land_button.clicked.connect(self._buy_land)
+        self.sell_land_button.clicked.connect(self._sell_land)
+        self.hectare_input.valueChanged.connect(self._update_land_tab)
+
+    def _buy_land(self):
+        try:
+            self.game.estate.buy_land(self.hectare_input.value())
+            self.main.update_money()
+            self._update_land_tab()
+        except InsufficientFunds:
+            self.main.display_message("You don't have enough money for that purchase.")
+
+    def _sell_land(self):
+        try:
+            self.game.estate.sell_land(self.hectare_input.value())
+            self.main.update_money()
+            self._update_land_tab()
+        except NotEnoughLand:
+            self.main.display_message("You don't have that much free land.")
+
+    def _update_land_tab(self):
+        self.free_land.setText(f'{self.game.estate.pasture_land} Ha')
+        if self.game.estate.pasture_land < self.hectare_input.value():
+            self.sell_land_button.setEnabled(False)
+        else:
+            self.sell_land_button.setEnabled(True)
+
+        if of.money(self.game.owner) < self.hectare_input.value()*LAND_COST:
+            self.buy_land_button.setEnabled(False)
+        else:
+            self.buy_land_button.setEnabled(True)
+
+
+class BuildingRow(QWidget):
+
+    def __init__(self, parent_widget, info, building_name, main_screen):
+        super(BuildingRow, self).__init__(parent_widget)
+        self.info = info
+        self.building = building_name
+        self.main = main_screen
+        self._create_widgets()
+        self.input_connect()
+        self.update()
+        self.show()
+
+    def _create_widgets(self):
+        label = QLabel(self, text=self.info['name'].title())
+        label.move(10, 4)
+        self.amount = QLabel(self, text='0')
+        self.amount.move(100, 4)
+        self.buy_button = QPushButton(self, text=f'Buy (${self.info["cost"]})')
+        self.buy_button.move(150, 0)
+        self.sell_button = QPushButton(self, text=f'Sell')
+        self.sell_button.move(250, 0)
+
+    def input_connect(self):
+        self.buy_button.clicked.connect(self.buy)
+        self.sell_button.clicked.connect(self.sell)
+
+    def buy(self):
+        """Try to buy one of the building."""
+        try:
+            self.main.game.estate.add_building(self.building)
+        except InsufficientFunds:
+            self.main.display_message('You do not have enough money to buy that.')
+        except NotEnoughLand:
+            self.main.display_message('Your estate is not large enough for that building.')
+        self.parentWidget().parentWidget().parentWidget().parentWidget().update()
+
+    def sell(self):
+        """Try to sell one of the building."""
+        try:
+            self.main.game.estate.remove_building(self.building)
+        except ValueError:
+            pass
+        self.update()
+
+    def update(self):
+        number = self.main.game.estate.building_count.get(self.building, 0)
+        self.amount.setText(f'{str(number)}       ')
+        if number == 0:
+            self.sell_button.setEnabled(False)
+        else:
+            self.sell_button.setEnabled(True)
+        if of.money(self.main.game.owner) < self.info['cost']:
+            self.buy_button.setEnabled(False)
+        else:
+            self.buy_button.setEnabled(True)
+
+        self.main.update_money()
 
 
 def convert_to_links(msg):
