@@ -1,8 +1,10 @@
 import os
 import sqlite3
-#import mysql.connector as mysql
-#from mysql.connector import errorcode
+from inspect import getmembers, isfunction
 import table_operations
+import recalc_phenotype_funcs
+import fixed_phenotype_funcs
+
 try:
     from game_parameters.local_constants import *
 except ModuleNotFoundError:
@@ -13,7 +15,7 @@ folder = os.path.dirname(__file__)
 db = sqlite3.connect(os.path.join(folder, 'game_data.db'))
 cursor = db.cursor()
 
-table_operations.delete_tables(['horses', 'owners', 'races', 'race_results'])
+table_operations.delete_tables(['horses', 'owners', 'races', 'race_results', 'horse_properties'])
 
 
 # Create all the necessary tables
@@ -34,8 +36,12 @@ CREATE TABLE IF NOT EXISTS horses (
     sire integer DEFAULT NULL,
     dna1 text,
     dna2 text,
+    leg_damage float DEFAULT 0,
+    ankle_damage float DEFAULT 0,
+    heart_damage float DEFAULT 0,
     FOREIGN KEY (owner_id) REFERENCES owners (owner_id)
     )"""
+
 tables['owners'] = """
 CREATE TABLE IF NOT EXISTS owners (
     owner_id integer PRIMARY KEY,
@@ -56,12 +62,25 @@ CREATE TABLE IF NOT EXISTS race_results (
     result_id integer PRIMARY KEY,
     horse_id integer NOT NULL,
     race_id integer NOT NULL,
-    time float NOT NULL,
+    time float,
     place integer,
     winnings integer DEFAULT 0,
-    FOREIGN KEY (horse_id) REFERENCES horses (id)
-    FOREIGN KEY (race_id) REFERENCES races (id)
+    FOREIGN KEY (horse_id) REFERENCES horses (horse_id)
+    FOREIGN KEY (race_id) REFERENCES races (race_id)
     )"""
+
+prop_table = """
+CREATE TABLE IF NOT EXISTS horse_properties (
+    horse_id integer PRIMARY KEY,
+"""
+for func_name in [x[0] for x in getmembers(recalc_phenotype_funcs) if isfunction(x[1])]:
+    prop_table += f'{func_name} float,'
+
+for func_name in [x[0] for x in getmembers(fixed_phenotype_funcs) if isfunction(x[1])]:
+    prop_table += f'{func_name} float,'
+prop_table += "FOREIGN KEY (horse_id) REFERENCES horses (horse_id))"
+tables['prop_table'] = prop_table
+
 
 for name, table in tables.items():
     print(f"Creating table {name}. ")

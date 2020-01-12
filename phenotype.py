@@ -1,6 +1,10 @@
+from inspect import getmembers, isfunction
 import numpy as np
-import genetics as ge
-
+import pandas as pd
+import recalc_phenotype_funcs as recalc
+import fixed_phenotype_funcs as fixed
+import table_operations as to
+from game_parameters.constants import *
 
 """
 Phenotypic system
@@ -46,408 +50,127 @@ A different but related model is used for things like coat color.
 """
 
 
-# Coat colors
-def base_color(chromo1, chromo2):
-    # Determine if the horse is white
-    kit = [ge.discrete_allele(cr, 'kit') for cr in (chromo1, chromo2)]
-    if 'W' in kit:
-        return 'white'
+to_recalc = [x for x in getmembers(recalc) if isfunction(x[1])]
 
-    # Find the base color and the main fadings/dilutions
-    ext = 'e'
-    if 'E' in [ge.discrete_allele(cr, 'extension') for cr in (chromo1, chromo2)]:
-        ext = 'E'
+to_fix = [x for x in getmembers(fixed) if isfunction(x[1])]
 
-    agouti = [ge.discrete_allele(cr, 'agouti') for cr in (chromo1, chromo2)]
-    if 'A+' in agouti:
-        agouti = 'A+'
-    elif 'A' in agouti:
-        agouti = 'A'
-    elif 'At' in agouti:
-        agouti = 'At'
+
+def calc_properties(horse_id):
+    """(Re)calculate the properties of a horse and store these results."""
+    query = f"""
+    SELECT horse_id
+    FROM horse_properties\
+    WHERE horse_id = {horse_id}"""
+    data = to.query_to_dataframe(query)
+
+    dna1, dna2 = get_dna(horse_id)
+    new_data = {}
+    for k, v in to_recalc:
+        new_data[k] = v(dna1, dna2)
+
+    if len(data) == 0:
+        new_data['horse_id'] = horse_id
+        for k, v in to_fix:
+            new_data[k] = v(dna1, dna2)
+        to.insert_into_table('horse_properties', new_data)
     else:
-        agouti = 'a'
-
-    cream = [ge.discrete_allele(cr, 'cream') for cr in (chromo1, chromo2)]
-    if 'Cr' in cream and 'cr' not in cream:
-        cream = 'CrCr'
-    elif 'Cr' in cream:
-        cream = 'Cr'
-    elif 'prl' in cream and 'cr' not in cream:
-        cream = 'prl'
-    else:
-        cream = 'cr'
-
-    dun = 'd'
-    if 'D' in [ge.discrete_allele(cr, 'dun') for cr in (chromo1, chromo2)]:
-        dun = 'D'
-
-    champagne = 'ch'
-    if 'Ch' in [ge.discrete_allele(cr, 'champagne') for cr in (chromo1, chromo2)]:
-        champagne = 'Ch'
-
-    dapple = 'z'
-    if 'Z' in [ge.discrete_allele(cr, 'dapple') for cr in (chromo1, chromo2)]:
-        dapple = 'Z'
-
-    flaxen = 'f'
-    if 'F' in [ge.discrete_allele(cr, 'flaxen') for cr in (chromo1, chromo2)]:
-        flaxen = 'F'
-
-    return non_white_color(ext, agouti, cream, dun, champagne, dapple, flaxen)
+        to.update_table('horse_properties', new_data, horse_id)
 
 
-def non_white_color(ext, agouti, cream, dun, champagne, dapple, flaxen):
-    """Return the basic color name for the horse that is not white.
+def update_properties(dead_too=False):
+    """Recalculate the properties of all horses and update the table.
 
     Args:
-        ext (str): e or E.
-        agouti (str): a, At, A, A+.
-        cream (str): cr, prl, Cr, CrCr.
-        dun (str): d, D.
-        champagne (str): ch, Ch.
-        dapple (str): z, Z.
-        flaxen (str): f, F.
+        dead_too (bool): If False, will only recalculate the values for living horses.
 
     Returns:
-        str. Basic color pattern of the horse.
+        None
     """
-
-    if ext == 'E':
-        if cream == 'CrCr':
-            if champagne == 'Ch':
-                if agouti == 'a':
-                    return 'classic cream'
-                elif agouti == 'At':
-                    return 'sable cream'
-                else:
-                    return 'amber cream'
-            else:
-                if dapple == 'Z':
-                    if dun == 'd':
-                        if agouti == 'a':
-                            return 'silver smoky cream'
-                        elif agouti == 'At':
-                            return 'silver seal brown cream'
-                        else:
-                            return 'silver dapple perlino'
-                    else:
-                        if agouti == 'a':
-                            return 'silver dapple cream grulla'
-                        else:
-                            return 'silver dapple perlino dun'
-                else:
-                    if dun == 'd':
-                        if agouti == 'a':
-                            return 'smoky cream'
-                        elif agouti == 'At':
-                            return 'seal brown cream'
-                        else:
-                            return 'perlino'
-                    else:
-                        if agouti == 'a':
-                            return 'cream grulla'
-                        else:
-                            return 'perlino dun'
-        elif cream == 'Cr':
-            if champagne == 'Ch':
-                if agouti == 'a':
-                    return 'classic cream'
-                elif agouti == 'At':
-                    return 'sable cream'
-                else:
-                    return 'amber cream'
-            else:
-                if dapple == 'Z':
-                    if dun == 'd':
-                        if agouti == 'a':
-                            return 'silver dapple'
-                        elif agouti == 'At':
-                            return 'silver dapple brown'
-                        elif agouti == 'A':
-                            return 'silver dapple buckskin'
-                        elif agouti == 'A+':
-                            return 'silver wild buckskin'
-                    else:
-                        if agouti == 'a':
-                            return 'silver dapple grulla'
-                        elif agouti == 'At':
-                            return 'silver dapple dun'
-                        else:
-                            return 'silver dapple dunskin'
-                else:
-                    if dun == 'd':
-                        if agouti == 'a':
-                            return 'silver dapple'
-                        elif agouti == 'At':
-                            return 'silver dapple brown'
-                        elif agouti == 'A':
-                            return 'silver dapple buckskin'
-                        elif agouti == 'A+':
-                            return 'silver wild buckskin'
-                    else:
-                        if agouti == 'a':
-                            return 'smoky grulla'
-                        elif agouti == 'At':
-                            return 'brown dun'
-                        else:
-                            return 'dunskin'
-        elif cream == 'prl':
-            if champagne == 'Ch':
-                if dun == 'd':
-                    if dapple == 'Z':
-                        return 'silver champagne pearl'
-                    else:
-                        return 'champagne pearl'
-                else:
-                    if agouti == 'a':
-                        return 'champagne dun pearl'
-                    elif agouti == 'At':
-                        return 'sable dun pearl'
-                    else:
-                        return 'amber dun pearl'
-            else:
-                if dapple == 'Z':
-                    if dun == 'd':
-                        return 'silver dapple pearl'
-                    else:
-                        return 'silver dun pearl'
-                else:
-                    if dun == 'd':
-                        return 'pearl'
-                    else:
-                        return 'dun pearl'
-        else:
-            if champagne == 'Ch':
-                if dun == 'd':
-                    if agouti == 'a':
-                        name = 'classic champagne'
-                    elif agouti == 'At':
-                        name = 'sable champagne'
-                    else:
-                        name = 'amber champagne'
-                else:
-                    if agouti == 'a':
-                        name = 'champagne dun'
-                    elif agouti == 'At':
-                        name = 'sable dun'
-                    else:
-                        name = 'amber dun'
-                if dapple == 'Z':
-                    return 'silver ' + name
-                else:
-                    return name
-            else:
-                if dapple == 'Z':
-                    if dun == 'd':
-                        if agouti == 'a':
-                            return 'silver dapple'
-                        elif agouti == 'At':
-                            return 'silver dapple brown'
-                        elif agouti == 'A':
-                            return 'silver dapple bay'
-                        elif agouti == 'A+':
-                            return 'silver dapple wild bay'
-                    else:
-                        if agouti == 'a':
-                            return 'silver dapple grulla'
-                        else:
-                            return 'silver dapple dun'
-                else:
-                    if dun == 'd':
-                        if agouti == 'a':
-                            return 'black'
-                        elif agouti == 'At':
-                            return 'seal brown'
-                        elif agouti == 'A':
-                            return 'bay'
-                        elif agouti == 'A+':
-                            return 'wild bay'
-                    else:
-                        if agouti == 'a':
-                            return 'grulla'
-                        elif agouti == 'At':
-                            return 'brown dun'
-                        else:
-                            return 'classic dun'
+    if dead_too:
+        query = "SELECT horse_id FROM horses"
     else:
-        if cream == 'CrCr':
-            if champagne == 'Ch':
-                return 'gold cream'
-            else:
-                return 'cremello'
-        elif cream == 'Cr':
-            if champagne == 'Ch':
-                return 'gold cream'
-            else:
-                if dun == 'D':
-                    return 'dunalino'
-                else:
-                    return 'palomino'
-        elif cream == 'prl':
-            if champagne == 'Ch':
-                if dun == 'D':
-                    return 'gold dun pearl'
-                else:
-                    if flaxen == 'F':
-                        return 'champagne pearl'
-                    else:
-                        return 'flaxen apricot champagne'
-            else:
-                if dun == 'D':
-                    if flaxen == 'F':
-                        return 'apricot dun'
-                    else:
-                        return 'flaxen apricot dun'
-                else:
-                    if flaxen == 'F':
-                        return 'apricot'
-                    else:
-                        return 'flaxen apricot'
-        else:
-            if champagne == 'Ch':
-                if dun == 'D':
-                    return 'gold dun'
-                else:
-                    if flaxen == 'F':
-                        return 'gold champagne'
-                    else:
-                        return 'flaxen gold champagne'
-            else:
-                if dun == 'D':
-                    if flaxen == 'F':
-                        return 'red dun'
-                    else:
-                        return 'flaxen dun'
-                else:
-                    if flaxen == 'F':
-                        return 'chestnut'
-                    else:
-                        return 'flaxen chestnut'
+        query = "SELECT horse_id FROM horses WHERE death_date is Null"
+    horses = to.query_to_dataframe(query)
+    for h in horses['horse_id']:
+        calc_properties(h)
 
 
-def hair_additions(chromo1, chromo2):
-    """Return the name of the coat pattern resulting from the addition of hairs resulting
-    from the sooty, rabicano, kit, overo, splashed white, and leopard complex genes."""
-    # Determine if the horse is white
-    kit = [ge.discrete_allele(cr, 'kit') for cr in (chromo1, chromo2)]
-    if 'W' in kit:
-        return ''
+def h_prop(property, horse_id, day=None):
+    """Return the property for the horse. If (re)calculation is needed, the results will
+    be saved.
 
-    output = ''
+    Args:
+        property (str): Name of the property to return
+        horse_id (id): ID of the horse in question
+        day (datetime or None): Day in the horse simulation, if the existing data is too
+            old, it will recalculate. If None, it will not worry about the age of the
+            data. If None, and there is no data, will calculate the data but will not save
+            it.
 
-    sooty = 'sty'
-    if 'Sty' in [ge.discrete_allele(cr, 'sooty') for cr in (chromo1, chromo2)]:
-        sooty = 'Sty'
+    Returns: The property of the horse.
 
-    rabi = 'rb'
-    if 'Rb' in [ge.discrete_allele(cr, 'rabicano') for cr in (chromo1, chromo2)]:
-        rabi = 'Rb'
+    """
+    query = f"""
+    SELECT {property}, last_updated
+    FROM horse_properties\
+    WHERE horse_id = {horse_id}"""
+    try:
+        data = to.query_to_dataframe(query).iloc[0]
+    except IndexError:
+        data = None
 
-    overo = 'o'
-    if 'O' in [ge.discrete_allele(cr, 'overo') for cr in (chromo1, chromo2)]:
-        overo = 'O'
+    # If there is no need to update, and we have the data
+    if data is not None:
+        if day is None:
+            day = data['last_updated']
+        day_diff = (pd.to_datetime(day) - data['last_updated']).days
+        if day_diff < PROPERTY_UPDATE:
+            return data[property]
 
-    splash = 'Spl'
-    if 'spl' in [ge.discrete_allele(cr, 'splashed') for cr in (chromo1, chromo2)]:
-        splash = 'spl'
+    dna1, dna2 = get_dna(horse_id)
+    # If we just need to calculate one value and return it
+    if day is None:
+        try:
+            return getattr(recalc, property)(dna1, dna2)
+        except:
+            return getattr(fixed, property)(dna1, dna2)
 
-    sabino = 'sb'
-    if 'Sb' in kit:
-        sabino = 'Sb'
+    # If we need to update or add data
+    new_data = {'last_updated': day}
+    for k, v in to_recalc:
+        new_data[k] = v(dna1, dna2)
 
-    roan = 'rn'
-    if 'Rn' in kit:
-        roan = 'Rn'
+    if data is None:
+        new_data['horse_id'] = horse_id
+        for k, v in to_fix:
+            new_data[k] = v(dna1, dna2)
+        to.insert_into_table('horse_properties', new_data)
+    else:
+        to.update_table('horse_properties', new_data, horse_id)
 
-    tabino = 'tb'
-    if 'Tb' in kit:
-        tabino = 'Tb'
-
-    leopard = 'LpLp'
-    ls = [ge.discrete_allele(cr, 'leopard_complex') for cr in (chromo1, chromo2)]
-    if 'lp' in ls:
-        if 'Lp' not in ls:
-            leopard = 'lp'
-        else:
-            leopard = 'Lp'
-
-    p1 = 'patn1'
-    if 'PATN1' in [ge.discrete_allele(cr, 'pattern1') for cr in (chromo1, chromo2)]:
-        p1 = 'PATN1'
-
-    p2 = 'patn2'
-    if 'PATN2' in [ge.discrete_allele(cr, 'pattern2') for cr in (chromo1, chromo2)]:
-        p2 = 'PATN2'
-
-
-def kit_phenotype(chromo1, chromo2):
-    """Return the phenotype generated by the KIT gene."""
-    kits = [ge.discrete_allele(cr, 'kit') for cr in (chromo1, chromo2)]
-
-
-# Anatomic properties
-
-def weight(chromo1, chromo2):
-    a1, _, _ = ge.activity_level(chromo1, 'size')
-    a2, _, _ = ge.activity_level(chromo2, 'size')
-    ave = (a1+a2)/2
-    return ave
+    try:
+        return new_data[property]
+    except KeyError:
+        return data[property]
 
 
-def muscle_mass(chromo1, chromo2):
-    a1, _, _ = ge.activity_level(chromo1, 'size')
-    a2, _, _ = ge.activity_level(chromo2, 'size')
-    size = (a1+a2)/2
+def get_dna(horse_id):
+    """Return the DNA of a horse.
 
-    a1, _, _ = ge.activity_level(chromo1, 'muscle_strength')
-    a2, _, _ = ge.activity_level(chromo2, 'muscle_strength')
-    strength = (a1+a2)/2
+    Args:
+        horse_id (int): ID of the horse.
 
-    return (size + 2 * strength)/3
-
-
-def heart_size(chromo1, chromo2):
-    a1, _, _ = ge.activity_level(chromo1, 'heart_growth')
-    a2, _, _ = ge.activity_level(chromo2, 'heart_growth')
-    size = (a1+a2)/2
-
-    return size
-
-
-def tendon_strength(chromo1, chromo2):
-    a1, _, _ = ge.activity_level(chromo1, 'connective_strength')
-    a2, _, _ = ge.activity_level(chromo2, 'connective_strength')
-    strength = (a1+a2)/2
-
-    return strength
-
-
-# Stats
-
-def speed(chromo1, chromo2):
-    """Return the speed in m/s"""
-    mm = muscle_mass(chromo1, chromo2)
-    w = weight(chromo1, chromo2)
-    hs = heart_size(chromo1, chromo2)
-
-    return 13 + 2*mm - w + hs
-
-
-def weight_stat(chromo1, chromo2):
-    """Return the weight in kg."""
-
-    return 450 + 100 * weight(chromo1, chromo2)
-
-
-def injury_risk(chromo1, chromo2):
-    """Return the probability of injury in a single race."""
-    return max(0, muscle_mass(chromo1, chromo2) - tendon_strength(chromo1, chromo2)) * 0.05
-
-
-def heart_failure(chromo1, chromo2):
-    """Return the probability of heart failure in a single race."""
-    return heart_size(chromo1, chromo2) ** 4 * 0.05
+    Returns:
+        str. First chromosome.
+        str. Second chromosome.
+    """
+    query = f"""
+    SELECT dna1, dna2
+        FROM horses
+        WHERE horse_id = {horse_id}
+    """
+    data = to.query_to_dataframe(query)[['dna1', 'dna2']].values
+    return data[0][0], data[0][1]
 
 
 def sigmoid(x):

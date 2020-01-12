@@ -1,15 +1,13 @@
 import os
 import datetime
 import json
+import random
 import numpy as np
 import pandas as pd
 import table_operations
 import genetics
 import phenotype
-try:
-    from game_parameters.local_constants import *
-except ModuleNotFoundError:
-    from game_parameters.constants import *
+from game_parameters.constants import *
 
 try:
     with(open(os.path.join(PARAMS_FOLDER, 'local_horse_names.json'), 'r')) as f:
@@ -72,6 +70,7 @@ def make_random_horse(max_date):
 def add_horse(horse_params):
     """Add a horse to the table."""
     new_id = table_operations.insert_into_table('horses', horse_params)
+    phenotype.calc_properties(new_id)
     return new_id
 
 
@@ -232,22 +231,6 @@ def owner_of(horses):
         return None
 
 
-def speed(horse_id=None, horse_info=None):
-    """Return the speed of the horse.
-
-    Args:
-        horse_id (int): ID of the horse of interest. This will be used to pull the
-            horse_info if it is not provided.
-        horse_info (pd.Series): The data for the horse.
-
-    Returns:
-        Float. The speed in m/s of the horse.
-    """
-    if horse_info is None:
-        horse_info = table_operations.get_rows('horses', horse_id).iloc[0]
-    return phenotype.speed(horse_info['dna1'], horse_info['dna2'])
-
-
 def coat(horse_id=None, horse_info=None):
     """Return the coat color/pattern of the horse.
 
@@ -396,6 +379,89 @@ def all_values(dictionary, key):
         if k == key:
             output += [v]
     return output
+
+
+def check_for_injuries(horse_id, event):
+    """Roll the dice to see if a horse gets injured during an event.
+
+    Args:
+        horse_id (int): ID of the horse to check.
+        event (str): Name of the event.
+
+    Return:
+        dict. Keys are the
+    """
+    query = f"SELECT * FROM horse_properties WHERE horse_id = {horse_id}"
+    data = table_operations.query_to_dataframe(query).iloc[0]
+    output = {}
+    for injury, info in INJURIES[event].items():
+        prob_mult = 1
+        for multiplier in info['multipliers']:
+            prob_mult *= data[multiplier]
+        if random.random() < info['probability']*prob_mult:
+            output[info['display']] = [info['part'], info['damage']]
+    return output
+
+
+def apply_damage(horse_id, part, amount, date=None):
+    """Add damage from an injury to a horse.
+
+    Args:
+        horse_id (int): ID of the horse.
+        part (str): Body part that is injured.
+        amount (float): how much damage.
+        date (datetime): Only needed if the wound is fatal.
+    """
+    if amount == 'fatal':
+        kill_horse(horse_id, date=date)
+    else:
+        cmd = f"""
+        UPDATE horses SET {part}_damage = {part}_damage + {amount} where horse_id = {horse_id}
+        """
+        table_operations.cursor.execute(cmd)
+
+
+def heal_horses():
+    """Reduce the damage on all horses' body parts. Typically called each day.
+    """
+    command = "UPDATE horses SET leg_damage = MAX(0, leg_damage - ?)"
+    table_operations.cursor.execute(command, [HEAL_RATE])
+
+    command = "UPDATE horses SET ankle_damage = MAX(0, ankle_damage - ?)"
+    table_operations.cursor.execute(command, [HEAL_RATE])
+
+    command = "UPDATE horses SET heart_damage = MAX(0, heart_damage - ?)"
+    table_operations.cursor.execute(command, [HEAL_RATE])
+
+
+def raceable_horses(owner_id=None):
+    """Return the ids of all horses owned by the specified owner which are healthy
+    enough to race.
+
+    Args:
+        owner_id (int, None): Owner to find horses of. If None, will return all
+            raceable horses regardless of source.
+
+    Return:
+        List. List of all ids of horses.
+    """
+    if owner_id is None:
+        command = """
+        SELECT horse_id from horses WHERE
+            death_date is NULL 
+            and leg_damage + heart_damage + ankle_damage < ?
+        """
+        params = [HEALTH_CUTOFF]
+    else:
+        command = """
+        SELECT horse_id from horses WHERE
+            owner_id = ?
+            and death_date is NULL
+            and leg_damage + heart_damage + ankle_damage < ?
+        """
+        params =[owner_id, HEALTH_CUTOFF]
+    horses = table_operations.query_to_dataframe(command, params=params)['horse_id'].values
+    return [int(x) for x in horses]
 
 
 class WrongGender(ValueError):

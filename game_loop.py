@@ -8,11 +8,8 @@ import table_operations as to
 import race_functions as rf
 import owner_functions as of
 import estate
-import phenotype
-try:
-    from game_parameters.local_constants import *
-except ModuleNotFoundError:
-    from game_parameters.constants import *
+import phenotype as phe
+from game_parameters.constants import *
 
 
 class Game:
@@ -20,11 +17,12 @@ class Game:
 
     def __init__(self, start_day, gui=False, restart=True):
         self.day = pd.to_datetime(start_day)
+        self.day_increment = 0
         if not gui:
             gui = BasicPrinter(self)
         self.gui = gui
         self.automated = True
-        if restart:
+        if not restart:
             import game_initializer
 
     def run_days(self, number, basic=False):
@@ -39,7 +37,12 @@ class Game:
                         self.race(horse_ids='random')
                     else:
                         self._prepare_for_race()
+            if self.day_increment % PROPERTY_UPDATE == 0:
+                phe.update_properties(dead_too=False)
+            hf.heal_horses()
+
             self.day += datetime.timedelta(1)
+            self.day_increment += 1
             self.gui.update_day(self.day)
             self.gui.update_money()
 
@@ -108,19 +111,27 @@ class Game:
             List. The numbers of the top 3 finishers.
         """
         if horse_ids == 'random':
-            horses = self.living_horses(owner_id=None)
+            horses = hf.raceable_horses(owner_id=None)
             horse_ids = np.random.choice(horses, 8, replace=False)
         horse_ids = np.array(horse_ids)
         if len(horse_ids) < 1:
             raise ValueError("There must be at least one horse in a race.")
 
-        speeds = []
-        for id in horse_ids:
-            speeds += [hf.speed(id)]
-        speeds = np.array(speeds)
+        query = f"SELECT horse_id, speed FROM horse_properties WHERE horse_id in {tuple(horse_ids)}"
+        speeds = to.query_to_dataframe(query)['speed'].values
         if noisey_speeds:
             speeds += np.random.normal(0, 1, len(speeds))
-        times = track_length/speeds
+
+        # See if any injuries occur
+        for i, horse in enumerate(horse_ids):
+            injuries = hf.check_for_injuries(horse, 'race')
+            for phrase, v in injuries.items():
+                hf.apply_damage(horse, v[0], v[1], self.day)
+                self.gui.display_message(f"[horses:{horse}] suffered {phrase}.")
+                speeds[i] = 0  # If a horse is injured it cannot run the race.
+
+        with np.errstate(divide='ignore', invalid='ignore'):  # We are ok with dividing by 0
+            times = track_length/speeds
         finish_inds = np.argsort(times)
         finish_ids = horse_ids[finish_inds]
 
@@ -139,6 +150,7 @@ class Game:
                 break
             output.loc[i, 'winnings'] = prize
         output['race_id'] = race_id
+        output.replace(np.inf, np.nan, inplace=True)
         to.insert_dataframe_into_table('race_results', output)
 
         for i, row in output.iterrows():
@@ -237,12 +249,14 @@ class Game:
         data = to.get_rows('horses', [horse_id]).iloc[0]
         age = (self.day - data['birth_date']).days
         title = hf.horse_title(data['gender'], age)
-        color = hf.coat(horse_info=data)
-        if data['death_date'] is None:
+        props = to.query_to_dataframe(
+            f"SELECT * FROM horse_properties WHERE horse_id = {horse_id}").iloc[0]
+        if pd.isna(data['death_date']):
             verb = 'is'
         else:
             verb = 'was'
-        msg = f"[horses:{data['horse_id']}] {verb} a {color} {title} of age {self.display_age(data['birth_date'])}."
+        msg = f"[horses:{data['horse_id']}] {verb} a {props['base_color']}" \
+            f" {title} of age {self.display_age(data['birth_date'])}."
 
         # Add parent information
         if data['dam'] is None:
@@ -260,8 +274,26 @@ class Game:
         msg += f'<body style="text-indent:0px">Owner: {data["owner_id"]}</body>'
 
         # Add speed
-        msg += f'<body style="text-indent:0px">Speed: {hf.speed(horse_info=data):.4}</body>'
+        msg += f'<body style="text-indent:0px">Speed: {props["speed"]:.4}</body>'
 
+        def injury_term(x):
+            if x == 0:
+                return 'healthy'
+            if x <= 25:
+                return 'injured'
+            if x <= 75:
+                return 'seriously injured'
+            return 'fucked up'
+
+        # Add injuries
+        msg += f'<body style="text-indent:0px">' \
+            f'Legs: {injury_term(data["leg_damage"])}</body>'
+        msg += f'<body style="text-indent:0px">' \
+            f'Ankles: {injury_term(data["ankle_damage"])}</body>'
+        msg += f'<body style="text-indent:0px">' \
+            f'Heart: {injury_term(data["heart_damage"])}</body>'
+
+        msg += '<br></br>'
         # Add race history
         race_history = hf.race_summary(horse_id).iloc[0]
         msg += f"Total winnings: ${race_history['winnings']:.2f}"
@@ -283,11 +315,13 @@ class Game:
         if owner_id is None:
             command = f"SELECT horse_id from horses WHERE" \
                 f" death_date is NULL"
+            params = []
         else:
             command = f"SELECT horse_id from horses WHERE" \
-                f" owner_id = {owner_id}" \
+                f" owner_id = ?" \
                 f" and death_date is NULL"
-        return list(to.query_to_dataframe(command)['horse_id'].values)
+            params =[owner_id]
+        return list(to.query_to_dataframe(command, params=params)['horse_id'].values)
 
     def add_owners(self, number, starting_cash):
         """Add new owners.
@@ -306,7 +340,6 @@ class Game:
                 of.add_owner(0, 'Wild')
             else:
                 of.add_owner(starting_cash)
-
 
 
 class BasicPrinter:

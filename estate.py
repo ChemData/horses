@@ -1,10 +1,6 @@
 from math import floor
 import owner_functions as of
-
-try:
-    from game_parameters.local_constants import *
-except ModuleNotFoundError:
-    from game_parameters.constants import *
+from game_parameters.constants import *
 
 """
 Estates
