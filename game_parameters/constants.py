@@ -4,22 +4,32 @@ import json
 # Genetics
 GENE_LENGTH = 6  # Basepairs per gene
 CHROMOSOME_LENGTH = 20  # Genes per chromosome
-DEFAULT_WELL_FORMED_CUTOFF = .1  # Default value for difficulty of a gene being well formed.
+DEFAULT_WELL_FORMED_CUTOFF = 0.1  # Default value for difficulty of a gene being well formed.
                                 # Higher is harder.
-folder = os.path.dirname(__file__)
+
+
+# Other param files
+PARAMS_FOLDER = os.path.dirname(__file__)
 try:
-    with open(os.path.join(folder, 'local_genes.json'), 'r') as f:
+    with open(os.path.join(PARAMS_FOLDER, 'local_genes.json'), 'r') as f:
         GENES = json.load(f)
 except FileNotFoundError:
-    with open(os.path.join(folder, 'genes.json'), 'r') as f:
+    with open(os.path.join(PARAMS_FOLDER, 'genes.json'), 'r') as f:
         GENES = json.load(f)
 
 try:
-    with open(os.path.join(folder, 'local_buildings.json'), 'r') as f:
+    with open(os.path.join(PARAMS_FOLDER, 'local_buildings.json'), 'r') as f:
         BUILDINGS = json.load(f)
 except FileNotFoundError:
-    with open(os.path.join(folder, 'buildings.json'), 'r') as f:
+    with open(os.path.join(PARAMS_FOLDER, 'buildings.json'), 'r') as f:
         BUILDINGS = json.load(f)
+
+try:
+    with open(os.path.join(PARAMS_FOLDER, 'local_injuries.json'), 'r') as f:
+        INJURIES = json.load(f)
+except FileNotFoundError:
+    with open(os.path.join(PARAMS_FOLDER, 'injuries.json'), 'r') as f:
+        INJURIES = json.load(f)
 
 # Naming
 HORSE_NAME_MAX = 24  # Longest permitted name for a horse
@@ -28,18 +38,25 @@ OWNER_NAME_MAX = 24  # Longest permitted name for an owner
 # Event Probabilities
 RACE_PROBABILITY = 0  # Probability that a race will occur each day
 
-# Horse development times
+# Horse life times
 SEXUAL_MATURITY = 730  # Age (in days) when breeding can occur
 GESTATION_MEAN = 340  # Mean time (in days) that gestation takes
 GESTATION_STD = 15  # Standard deviation of gestation time
 LIFE_MEAN = 9490  # Mean lifespan (in days)
 LIFE_STD = 730  # Lifespan standard deviation
+PROPERTY_UPDATE = 30  # How frequently to update a horse's anatomical information
 
-# File paths
-PARAMS_FOLDER = os.path.dirname(__file__)
+# Injury Info
+HEAL_RATE = 1  # Number of points of damage body parts will heal each day
+HEALTH_CUTOFF = 25  # A horse cannot race if total damage is greater than this value
 
 # Estates
 STARTING_MONEY = 100000  # How much money each player starts with
 INIT_ESTATE_SIZE = 100  # Starting size of estates in hectares
 PASTURE_AMT = 5  # Hectares of pasture needed per horse
 LAND_COST = 1000  # Cost to buy one hectare of open land
+
+try:
+    from game_parameters.local_constants import *
+except ModuleNotFoundError:
+    pass

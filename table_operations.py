@@ -8,7 +8,8 @@ folder = os.path.dirname(__file__)
 db = sqlite3.connect(database=os.path.join(folder, 'game_data.db'))
 cursor = db.cursor()
 
-DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date']
+DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date', 'last_updated']
+
 
 def insert_into_table(table, data_dict):
     """Insert a new row into an existing table.
@@ -37,6 +38,29 @@ def insert_into_table(table, data_dict):
     return cursor.lastrowid
 
 
+def update_table(table, data_dict, primary_key_val):
+    """Update a table with the provided data.
+    Args:
+        table (str): Name of the table to add the row to.
+        data_dict (dict): Column, data pairs to put in the row.
+        primary_key_val (int): Primary key to add this data to.
+
+    Return:
+        Nothing.
+    """
+    pk_name = primary_key(table)
+
+    com = f"""
+    UPDATE {table}
+    SET
+    """
+    for k, v in data_dict.items():
+        com += f"{k} = {v},"
+    com = com[:-1]
+    com += f" WHERE {pk_name} = {primary_key_val}"
+    cursor.execute(com)
+
+
 def insert_dataframe_into_table(table, data):
     """Insert the data contained in a pandas DataFrame into an existing table. All columns
     in the dataframe will be added and should already be in the table.
@@ -45,15 +69,29 @@ def insert_dataframe_into_table(table, data):
         table (str): Name of the table to add the rows to.
         data (pd.DataFrame): Data to add.
     """
-    command = f"INSERT INTO '{table}' {str(tuple(data.columns))}"
-    command += " VALUES"
-    for i, row in data.iterrows():
-        if i != 0:
-            command += ','
-        command += str(tuple(row.values))
-    command = command.replace("'", "`")
-    cursor.execute(command)
-    db.commit()
+    data.to_sql(table, db, if_exists='append', index=False)
+
+
+def format_list(seq):
+    """Format a sequence of values for a sql query.
+
+    e.g. ['boy', 'man', 'lady'] -> '(boy, man, lady)'
+    """
+    output = '('
+    for i in range(len(seq) - 1):
+        output += f'{seq[i]}, '
+    output += seq[-1]
+    output += ')'
+    return output
+
+
+def qmark_list(number):
+    """Return a string like '(?, ?, ?, ?)' ."""
+    output = '('
+    for i in range(number-1):
+        output += '?, '
+    output += '?)'
+    return output
 
 
 def whole_table(table):
@@ -131,9 +169,9 @@ def update_value(table, command):
     db.commit()
 
 
-def query_to_dataframe(query):
+def query_to_dataframe(query, params=[]):
     """Return the query as a pandas dataframe."""
-    return pd.read_sql_query(query, db, parse_dates=DATE_COLUMNS)
+    return pd.read_sql_query(query, db, params=params, parse_dates=DATE_COLUMNS)
 
 
 def list_tables():

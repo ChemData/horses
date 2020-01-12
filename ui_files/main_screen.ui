@@ -159,7 +159,14 @@
     <addaction name="actionPedigree"/>
     <addaction name="actionBuildings"/>
    </widget>
+   <widget class="QMenu" name="menuDebug">
+    <property name="title">
+     <string>Debug</string>
+    </property>
+    <addaction name="actionHorse_Properties"/>
+   </widget>
    <addaction name="menuWindows"/>
+   <addaction name="menuDebug"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionBreed_Horses">
@@ -185,6 +192,11 @@
   <action name="actionBuildings">
    <property name="text">
     <string>Buildings</string>
+   </property>
+  </action>
+  <action name="actionHorse_Properties">
+   <property name="text">
+    <string>Horse properties</string>
    </property>
   </action>
  </widget>

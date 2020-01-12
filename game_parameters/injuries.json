@@ -1,0 +1,34 @@
+{
+  "race": {
+    "knee_break": {
+      "part": "leg",
+      "display": "a broken knee",
+      "probability": 0.1,
+      "damage": 50,
+      "type": "major",
+      "multipliers": [
+        "knee_injury"
+      ]
+    },
+    "leg_stress": {
+      "part": "leg",
+      "display": "a stress fracture",
+      "probability": 0.05,
+      "damage": 5,
+      "type": "minor",
+      "multipliers": [
+        "knee_injury"
+      ]
+    },
+    "heart_failure": {
+      "part": "heart",
+      "display": "heart failure and died.",
+      "probability": 0.1,
+      "damage": "fatal",
+      "type": "fatal",
+      "multipliers": [
+        "heart_failure"
+      ]
+    }
+  }
+}

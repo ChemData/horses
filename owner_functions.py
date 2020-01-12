@@ -2,14 +2,11 @@ import random
 import json
 import os
 import pandas as pd
-import phenotype
+import phenotype as phe
 import table_operations
 import horse_functions
 import race_functions
-try:
-    from game_parameters.local_constants import *
-except ModuleNotFoundError:
-    from game_parameters.constants import *
+from game_parameters.constants import *
 
 
 try:
@@ -33,16 +30,14 @@ def pick_race_horses(owner_id, number):
     Return:
         List. horse_ids to put in a race.
     """
-    def calc_speed(x):
-        return phenotype.speed(x['dna1'], x['dna2'])
+    owner_id = int(owner_id)
+    horses = horse_functions.raceable_horses(owner_id)
 
-    horses = horses_of(owner_id)
-    if len(horses) == 0:
-        return []
-    horses['speed'] = horses.apply(calc_speed, axis=1)
-    horses.sort_values(by='speed', inplace=True)
-
-    return list(horses.iloc[:min(number, len(horses))]['horse_id'].values)
+    query = f"SELECT horse_id, speed FROM horse_properties WHERE" \
+        f" horse_id in {table_operations.qmark_list(len(horses))}"
+    speeds = table_operations.query_to_dataframe(query, horses)
+    speeds.sort_values(by='speed', inplace=True)
+    return list(speeds.iloc[:min(number, len(speeds))]['horse_id'].values)
 
 
 def horses_of(owner_id):
@@ -125,12 +120,15 @@ def money(owner_id):
 
 def owner_list():
     """Return a list of owner_ids in the database."""
-    owners = table_operations.get_primary_index('owners')
+    query = "SELECT owner_id FROM owners"
+    owners = table_operations.query_to_dataframe(query)['owner_id'].values
+    owners = [int(x) for x in owners]
     # The key 1 is reserved for wild horses and won't be included in the list.
     try:
         owners.remove(1)
     except ValueError:
         pass
+
     return owners
 
 

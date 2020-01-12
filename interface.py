@@ -3,26 +3,24 @@ import os
 import re
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore
-from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QMdiArea, QLabel, QWidget, QPushButton
-from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QLabel, QWidget, QPushButton
 from game_loop import Game
 import table_operations as to
 import owner_functions as of
 import horse_functions as hf
 import text_operations as text
 from estate import NotEnoughLand, InsufficientFunds
-try:
-    from game_parameters.local_constants import *
-except ModuleNotFoundError:
-    from game_parameters.constants import *
+from game_parameters.constants import *
 
 
 class MainScreen(QtWidgets.QMainWindow):
+    max_messages = 20  # maximum number of messages to display in the message box
 
     def __init__(self):
         self.app = QApplication(sys.argv)
         super(MainScreen, self).__init__()
         uic.loadUi(os.path.join('ui_files', 'main_screen.ui'), self)
+        self.messages = []
 
         self.game = Game('20110101', self)
         self.start_game()
@@ -32,13 +30,14 @@ class MainScreen(QtWidgets.QMainWindow):
         self.input_connect()
         self.show()
 
-
         sys.exit(self.app.exec())
 
     def _setup_sub_windows(self):
         self.race_window = RaceWindow(self, self.game)
 
         self.pedigree_window = PedigreeWindow(self, self.game)
+
+        self.property_window = PropertyWindow(self, self.game)
 
         self.breeding_box = BreedingBox(self, self.game)
         self.mdi.addSubWindow(self.breeding_box)
@@ -50,8 +49,7 @@ class MainScreen(QtWidgets.QMainWindow):
         self.mdi.addSubWindow(self.building_box)
 
     def start_game(self):
-        self.game.simulate_horse_population(50)
-        self.game.automated = True
+        self.game.simulate_horse_population(0)
 
     def input_connect(self):
         self.next_day.clicked.connect(self._next_day_push)
@@ -63,6 +61,7 @@ class MainScreen(QtWidgets.QMainWindow):
         self.actionTrading.triggered.connect(self._show_trading_box)
         self.actionPedigree.triggered.connect(self._show_pedigree_window)
         self.actionBuildings.triggered.connect(self._show_building_box)
+        self.actionHorse_Properties.triggered.connect(self._show_property_window)
 
     def _next_day_push(self):
         self.game.run_days(1)
@@ -92,7 +91,6 @@ class MainScreen(QtWidgets.QMainWindow):
     def _show_trading_box(self):
         self.breeding_box.hide()
         self.trading_box.show()
-        #self.trading_window.setGeometry(20, 0, 500, 500)
         self.trading_box.update()
 
     def _show_building_box(self):
@@ -104,6 +102,9 @@ class MainScreen(QtWidgets.QMainWindow):
     def _show_pedigree_window(self):
         self.pedigree_window.show()
 
+    def _show_property_window(self):
+        self.property_window.show()
+
     def display_link_info(self, url):
         """Display information about the thing that was just clicked on. Also show
         information in the pedigree window if it is open."""
@@ -113,15 +114,25 @@ class MainScreen(QtWidgets.QMainWindow):
             info = self.game.horse_info(id_)
             if self.pedigree_window.isVisible():
                 self.pedigree_window.update(id_)
+            if self.property_window.isVisible():
+                self.property_window.update(id_)
         else:
             info = ''
         info = convert_to_links(info)
         self.entity_info_box.setText(info)
 
-    def display_message(self, msg):
+    def display_message(self, msg, clear=False):
         """Display an update in the main window."""
+        if clear:
+            self.messages = []
         msg = convert_to_links(msg)
-        self.message_box.setText(msg)
+        msg = f'<body>{self.game.day}: </body>' + msg
+        self.messages = [msg] + self.messages
+        if len(self.messages) > self.max_messages:
+            self.messages.pop(-1)
+
+        total_message = '<body>------------------</body><br></br>'.join(self.messages)
+        self.message_box.setText(total_message)
 
     def ask_to_join_race(self, race_info):
         reply = QMessageBox.question(
@@ -234,7 +245,7 @@ class RaceWindow(QtWidgets.QMainWindow):
     def _refresh_horse_list(self):
         self.horse_selection.clear()
         self.race_horses.clear()
-        for h in self.game.living_horses(self.game.owner):
+        for h in hf.raceable_horses(self.game.owner):
             item = QtWidgets.QListWidgetItem()
             item.horse_id = h
             name = to.get_rows('horses', [h])['name'].values[0]
@@ -523,6 +534,33 @@ class PedigreeWindow(QtWidgets.QMainWindow):
                 if a2['dam'] is not None:
                     a3 = a2['dam']
                     self.mmm.setText(a3['name'])
+
+    def input_connect(self):
+        pass
+
+
+class PropertyWindow(QtWidgets.QMainWindow):
+
+    def __init__(self, main_screen, game):
+        self.main = main_screen
+        self.game = game
+        super(PropertyWindow, self).__init__()
+        uic.loadUi(os.path.join('ui_files', 'horse_property_screen.ui'), self)
+
+        self.input_connect()
+
+    def update(self, horse):
+        data = to.get_rows('horse_properties', [horse]).iloc[0]
+
+        msg = ''
+        for prop, val in data.iteritems():
+            msg += f'{prop}:  {val} \n'
+
+        data = to.get_rows('horses', [horse]).iloc[0]
+        for prop in ['leg_damage',  'ankle_damage', 'heart_damage']:
+            msg += f'{prop}:  {data[prop]} \n'
+
+        self.property_box.setText(msg)
 
     def input_connect(self):
         pass
