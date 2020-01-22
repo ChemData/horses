@@ -67,6 +67,7 @@ class MainScreen(QtWidgets.QMainWindow):
         self.action10_Year.triggered.connect(lambda x: self.game.random_startup(10*365))
         self.action20_Year.triggered.connect(lambda x: self.game.random_startup(20*365))
         self.actionLoad_Saved.triggered.connect(self.game.load_saved)
+        self.actionGod_mode.triggered.connect(self.game.enable_god_mode)
 
     def _next_day_push(self):
         self.game.run_days(1)
@@ -420,6 +421,18 @@ class TradeBox(QMdiSubWindow):
             return
 
         buying = self.buy_radio.isChecked()
+        if self.game.god_mode:
+            counterparty = self.counterparty_selection.currentData()
+            if buying:
+                hf.trade_horse(horse, self.game.owner)
+                of.add_money(counterparty, price)
+            else:
+                hf.trade_horse(horse, counterparty)
+                of.add_money(self.game.owner, price)
+            self.main.display_message("Some strange power compels me to accept your offer.")
+            self.main.update_money()
+            self.update()
+            return
 
         if buying and self.game.estate.horse_capacity <\
                 len(self.game.living_horses(self.game.owner)) + 1:

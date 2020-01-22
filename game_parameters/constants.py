@@ -63,7 +63,7 @@ HEAL_RATE = 1  # Number of points of damage body parts will heal each day
 HEALTH_CUTOFF = 25  # A horse cannot race if total damage is greater than this value
 
 # Estates
-STARTING_MONEY = 100000  # How much money each player starts with
+STARTING_MONEY = 10000  # How much money each player starts with
 INIT_ESTATE_SIZE = 100  # Starting size of estates in hectares
 PASTURE_AMT = 5  # Hectares of pasture needed per horse
 LAND_COST = 1000  # Cost to buy one hectare of open land

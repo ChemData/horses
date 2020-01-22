@@ -30,6 +30,7 @@ class Game:
             import game_initializer
             self.add_owners(5, c.STARTING_MONEY)
         self.estate = estate.Estate(self.owner)
+        self.god_mode = False
 
     def run_days(self, number, basic=False):
         """Run the simulation for a number of days."""
@@ -449,6 +450,21 @@ class Game:
         if len(injuries) > 0:
             return True
         return False
+
+    def enable_god_mode(self):
+        """Give the player bonuses and powers that are useful for debugging."""
+        of.add_money(self.owner, 10000000)
+        self.estate.buy_land(1000000, for_free=True)
+        self.estate.add_building('lodge', for_free=True)
+        self.estate.add_building('lodge', for_free=True)
+        self.estate.add_building('lodge', for_free=True)
+        self.estate.add_building('lodge', for_free=True)
+        self.estate.add_building('large_stable', for_free=True)
+        self.estate.add_building('large_stable', for_free=True)
+        self.estate.add_building('large_stable', for_free=True)
+        self.estate.add_building('large_stable', for_free=True)
+        self.gui.update_money()
+        self.god_mode = True
 
 
 class BasicPrinter:
