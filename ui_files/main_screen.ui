@@ -65,7 +65,7 @@
      <rect>
       <x>190</x>
       <y>10</y>
-      <width>81</width>
+      <width>121</width>
       <height>16</height>
      </rect>
     </property>
@@ -165,6 +165,7 @@
      <string>Debug</string>
     </property>
     <addaction name="actionHorse_Properties"/>
+    <addaction name="actionGod_mode"/>
    </widget>
    <widget class="QMenu" name="menuStartup">
     <property name="title">
@@ -233,6 +234,11 @@
   <action name="actionLoad_Saved">
    <property name="text">
     <string>Load Saved</string>
+   </property>
+  </action>
+  <action name="actionGod_mode">
+   <property name="text">
+    <string>God mode</string>
    </property>
   </action>
  </widget>
