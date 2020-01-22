@@ -1,14 +1,33 @@
 import os
 import numbers
 import sqlite3
+from io import StringIO
 import numpy as np
 import pandas as pd
 
 folder = os.path.dirname(__file__)
-db = sqlite3.connect(database=os.path.join(folder, 'game_data.db'))
+db = sqlite3.connect(":memory:")
 cursor = db.cursor()
 
 DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date', 'last_updated']
+
+
+def load_disk_database(db_name):
+    # Read database to tempfile
+    con = sqlite3.connect(database=os.path.join(folder, db_name))
+    tempfile = StringIO()
+    for line in con.iterdump():
+        tempfile.write('%s\n' % line)
+    con.close()
+    tempfile.seek(0)
+
+    # Drop all the tables in the in-memory database
+    delete_tables(list_tables())
+
+    # Import from tempfile to the in-memory database
+    cursor.executescript(tempfile.read())
+    db.commit()
+    db.row_factory = sqlite3.Row
 
 
 def insert_into_table(table, data_dict):
@@ -212,3 +231,4 @@ def convert_for_sqlite(value):
         raise ValueError(f"{value} cannot be converted into a form for storage in a database.")
 
 
+load_disk_database('game_data.db')
