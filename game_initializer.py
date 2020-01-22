@@ -5,17 +5,15 @@ import table_operations
 import recalc_phenotype_funcs
 import fixed_phenotype_funcs
 
-try:
-    from game_parameters.local_constants import *
-except ModuleNotFoundError:
-    from game_parameters.constants import *
+from game_parameters.constants import *
 import game_parameters.parameter_checker
 
 folder = os.path.dirname(__file__)
 db = sqlite3.connect(os.path.join(folder, 'game_data.db'))
 cursor = db.cursor()
 
-table_operations.delete_tables(['horses', 'owners', 'races', 'race_results', 'horse_properties'])
+table_operations.delete_tables(['horses', 'owners', 'races', 'race_results',
+                                'horse_properties', 'employees'])
 
 
 # Create all the necessary tables
@@ -39,6 +37,7 @@ CREATE TABLE IF NOT EXISTS horses (
     leg_damage float DEFAULT 0,
     ankle_damage float DEFAULT 0,
     heart_damage float DEFAULT 0,
+    training float DEFAULT 0,
     FOREIGN KEY (owner_id) REFERENCES owners (owner_id)
     )"""
 
@@ -80,6 +79,23 @@ for func_name in [x[0] for x in getmembers(fixed_phenotype_funcs) if isfunction(
     prop_table += f'{func_name} float,'
 prop_table += "FOREIGN KEY (horse_id) REFERENCES horses (horse_id))"
 tables['prop_table'] = prop_table
+
+employee_table = """
+CREATE TABLE IF NOT EXISTS employees (
+    employee_id integer PRIMARY KEY,
+    employer integer DEFAULT 1,
+    salary float DEFAULT 0,
+    employee_type string NOT NULL,
+    name string NOT NULL,
+"""
+cols = []
+for employee in EMPLOYEES.keys():
+    cols += list(EMPLOYEES[employee]['bonuses'].keys())
+for c in set(cols):
+    employee_table += f"{c} float DEFAULT 0,\n"
+employee_table += "FOREIGN KEY (employer) REFERENCES owners (owner_id))"
+
+tables['employee_table'] = employee_table
 
 
 for name, table in tables.items():

@@ -1,0 +1,42 @@
+{
+  "veterinarian": {
+    "name": "vet",
+    "plural_name": "vets",
+    "bonuses": {
+      "heal_rate": {
+        "name": "heal rate",
+        "levels": [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8],
+        "horses_per": 5
+      },
+      "major_injury_reduction": {
+        "name": "injury reduction",
+        "levels": [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 0.5],
+        "horses_per": 5
+      }
+    }
+  },
+  "trainer": {
+    "name": "trainer",
+    "bonuses": {
+      "heal_rate": {
+        "name": "heal rate",
+        "levels": [-0.1, -0.05, 0, 0, 0, 0.05, 0.1, 0.15, 0.2, 0.3],
+        "horses_per": 8
+      },
+      "training_rate": {
+        "name": "training rate",
+        "levels": [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+        "horses_per": 4
+      }
+    }
+  },
+  "stable_hand": {
+    "name": "stable hand",
+    "bonuses": {
+      "muck_rate": {
+        "name": "muck rate",
+        "levels": [1, 2, 3, 4, 4, 5, 5, 6, 6, 7]
+      }
+    }
+  }
+}

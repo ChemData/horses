@@ -1,5 +1,7 @@
 from math import floor
 import owner_functions as of
+import employee_functions as ef
+import table_operations as to
 from game_parameters.constants import *
 
 """
@@ -103,6 +105,14 @@ class Estate:
     def employee_capacity(self):
         """Return the number of employees that the estate can support."""
         return sum(BUILDINGS[x].get('person_capacity', 0) for x in self.buildings)
+
+    @property
+    def rooms_available(self):
+        """Return the number of free rooms available for new employees to live in."""
+        total = self.employee_capacity
+        emp = to.query_to_dataframe(
+            "SELECT employee_id FROM employees WHERE employer = ?", [self.owner])
+        return total - len(emp)
 
     @property
     def pasture_land(self):

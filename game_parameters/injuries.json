@@ -8,7 +8,8 @@
       "type": "major",
       "multipliers": [
         "knee_injury"
-      ]
+      ],
+      "reduces_to": "leg_stress"
     },
     "leg_stress": {
       "part": "leg",

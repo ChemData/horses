@@ -74,17 +74,23 @@ def remove_money(owner_id, amount):
     owner has less than that amount to remove.
     Args:
         owner_id (int): ID of the owner.
-        amount (float): Amount of money to remove from that owner.
+        amount (float, 'all'): Amount of money to remove from that owner. If 'all', will
+            remove all their money.
 
     Return:
         None
     """
+    if amount == 'all':
+        command = "UPDATE owners SET money = 0 WHERE owner_id = ?"
+        table_operations.cursor.execute(command, [owner_id])
+        return
+
     cur_money = money(owner_id)
     if cur_money < amount:
         raise ValueError(f'{owner_id} only has {cur_money} and so {amount} cannot be'
                          f' removed from their account.')
-    command = f"SET money = money - {amount} WHERE owner_id = {owner_id}"
-    table_operations.update_value('owners', command)
+    command = "UPDATE owners SET money = money - ? WHERE owner_id = ?"
+    table_operations.cursor.execute(command, [amount, owner_id])
 
 
 def add_owner(money=0., name=None):
