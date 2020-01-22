@@ -13,6 +13,7 @@ import employee_functions as ef
 import estate
 import phenotype as phe
 import game_parameters.constants as c
+import game_initializer
 
 
 class Game:
@@ -27,7 +28,8 @@ class Game:
         self.gui = gui
         self.automated = True
         if restart:
-            import game_initializer
+            game_initializer.create_empty_tables()
+            to.load_disk_database('game_data.db')
             self.add_owners(5, c.STARTING_MONEY)
         self.estate = estate.Estate(self.owner)
         self.god_mode = False
@@ -93,7 +95,7 @@ class Game:
 
     def load_saved(self, name):
         """Use an existing database for this game."""
-        shutil.copyfile('20yr_start_game_data.db', 'game_data.db')
+        to.load_disk_database('20yr_start_game_data.db')
         self.day = pd.to_datetime('20100101')
 
     def _deliver_foals(self):
