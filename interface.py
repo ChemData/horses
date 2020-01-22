@@ -23,8 +23,7 @@ class MainScreen(QtWidgets.QMainWindow):
         uic.loadUi(os.path.join('ui_files', 'main_screen.ui'), self)
         self.messages = []
 
-        self.game = Game('20110101', self)
-        self.start_game()
+        self.game = Game('19900101', self)
 
         self._setup_sub_windows()
 
@@ -37,9 +36,7 @@ class MainScreen(QtWidgets.QMainWindow):
         self.currently_showing_box = None
 
         self.race_window = RaceWindow(self, self.game)
-
         self.pedigree_window = PedigreeWindow(self, self.game)
-
         self.property_window = PropertyWindow(self, self.game)
 
         self.breeding_box = BreedingBox(self, self.game)
@@ -54,9 +51,6 @@ class MainScreen(QtWidgets.QMainWindow):
         self.employee_box = EmployeeBox(self, self.game)
         self.mdi.addSubWindow(self.employee_box)
 
-    def start_game(self):
-        self.game.simulate_horse_population(0)
-
     def input_connect(self):
         self.next_day.clicked.connect(self._next_day_push)
         self.next_n_days.clicked.connect(self._next_n_days_push)
@@ -69,6 +63,10 @@ class MainScreen(QtWidgets.QMainWindow):
         self.actionBuildings.triggered.connect(self._show_building_box)
         self.actionEmployees.triggered.connect(self._show_employee_box)
         self.actionHorse_Properties.triggered.connect(self._show_property_window)
+        self.actionQuick.triggered.connect(lambda x: self.game.random_startup(0))
+        self.action10_Year.triggered.connect(lambda x: self.game.random_startup(10*365))
+        self.action20_Year.triggered.connect(lambda x: self.game.random_startup(20*365))
+        self.actionLoad_Saved.triggered.connect(self.game.load_saved)
 
     def _next_day_push(self):
         self.game.run_days(1)
