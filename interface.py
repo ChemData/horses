@@ -2,12 +2,13 @@ import sys
 import os
 import re
 import numpy as np
-from PyQt5 import QtWidgets, uic, QtCore
-from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QLabel, QWidget, QPushButton
+from PyQt5 import QtWidgets, uic, QtCore, QtGui
+from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QLabel, QWidget, QPushButton, QFrame, QScrollArea
 from game_loop import Game
 import table_operations as to
 import owner_functions as of
 import horse_functions as hf
+import employee_functions as ef
 import text_operations as text
 from estate import NotEnoughLand, InsufficientFunds
 from game_parameters.constants import *
@@ -43,10 +44,13 @@ class MainScreen(QtWidgets.QMainWindow):
         self.mdi.addSubWindow(self.breeding_box)
 
         self.trading_box = TradeBox(self, self.game)
-        self.mdi.addSubWindow(self.trading_box, )
+        self.mdi.addSubWindow(self.trading_box)
 
         self.building_box = BuildingBox(self, self.game)
         self.mdi.addSubWindow(self.building_box)
+
+        self.employee_box = EmployeeBox(self, self.game)
+        self.mdi.addSubWindow(self.employee_box)
 
     def start_game(self):
         self.game.simulate_horse_population(0)
@@ -61,6 +65,7 @@ class MainScreen(QtWidgets.QMainWindow):
         self.actionTrading.triggered.connect(self._show_trading_box)
         self.actionPedigree.triggered.connect(self._show_pedigree_window)
         self.actionBuildings.triggered.connect(self._show_building_box)
+        self.actionEmployees.triggered.connect(self._show_employee_box)
         self.actionHorse_Properties.triggered.connect(self._show_property_window)
 
     def _next_day_push(self):
@@ -98,6 +103,13 @@ class MainScreen(QtWidgets.QMainWindow):
         self.breeding_box.hide()
         self.building_box.show()
         self.building_box.update()
+
+    def _show_employee_box(self):
+        self.trading_box.hide()
+        self.breeding_box.hide()
+        self.building_box.hide()
+        self.employee_box.show()
+        self.employee_box.update()
 
     def _show_pedigree_window(self):
         self.pedigree_window.show()
@@ -700,6 +712,144 @@ class BuildingRow(QWidget):
             self.buy_button.setEnabled(True)
 
         self.main.update_money()
+
+
+class EmployeeBox(QMdiSubWindow):
+    hired = QtCore.pyqtSignal(int)
+    fired = QtCore.pyqtSignal(int)
+
+    def __init__(self, main_screen, game):
+        self.main = main_screen
+        self.game = game
+        super(EmployeeBox, self).__init__()
+        uic.loadUi(os.path.join('ui_files', 'employee_box.ui'), self)
+        self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+        self._create_layout()
+        self.update()
+        self.input_connect()
+        self.hide()
+
+    def _create_layout(self):
+        """Create the layout of information and buttons to allow for buying/selling
+        buildings."""
+        for employee_type, employee_info in EMPLOYEES.items():
+            title = employee_info.get('plural_name', employee_info['name'] + 's')
+            title = title.capitalize()
+            tab = QWidget()
+            tab.employee_type = employee_type
+            self.tabWidget.addTab(tab, title)
+
+            tab.setLayout(QtWidgets.QHBoxLayout())
+
+            hire_scroll = QScrollArea()
+            hire_scroll.setWidgetResizable(True)
+            hire_scroll.setMinimumWidth(200)
+            tab.layout().addWidget(hire_scroll)
+            hire_inner = QFrame()
+            hire_inner.setLayout(QtWidgets.QVBoxLayout())
+            hire_scroll.setWidget(hire_inner)
+
+            fire_scroll = QScrollArea()
+            fire_scroll.setWidgetResizable(True)
+            fire_scroll.setMinimumWidth(200)
+            tab.layout().addWidget(fire_scroll)
+            fire_inner = QFrame()
+            fire_inner.setLayout(QtWidgets.QVBoxLayout())
+            fire_scroll.setWidget(fire_inner)
+
+    def update(self):
+        # Update number stats
+        self.current_salary.setText(f'Current Salary: ${ef.total_salary(self.game.owner)}/week')
+        self.rooms_available.setText(f'Rooms Available: {self.game.estate.rooms_available}')
+
+        # Update employee tiles
+        tab = self.tabWidget.currentWidget()
+        employees = to.query_to_dataframe("SELECT * FROM employees WHERE employer = 1 AND employee_type = ?", [tab.employee_type])
+        hire = tab.children()[1].children()[0].children()[0]
+        fire = tab.children()[2].children()[0].children()[0]
+        self._clear_widget(hire, EmployeeTile)
+        self._clear_widget(fire, EmployeeTile)
+        for r, employee in employees.iterrows():
+            tile = EmployeeTile(employee, tab, self.main, self, for_hire=True)
+            hire.layout().addWidget(tile)
+
+        employees = to.query_to_dataframe(
+            "SELECT * FROM employees WHERE employer = ? AND employee_type = ?", [self.game.owner, tab.employee_type])
+        for r, employee in employees.iterrows():
+            tile = EmployeeTile(employee, tab, self.main, self, for_hire=False)
+            fire.layout().addWidget(tile)
+
+    def _clear_widget(self, widget, clear_type=None):
+        """
+        Delete all children of the specified type in the widget.
+        Args:
+            widget (PyQt5.QWidget): Delete the children of this widget.
+            clear_type (class, None): Only delete children of this class. If None, will
+                delete all children.
+
+        Returns:
+            None.
+        """
+        for c in widget.children():
+            if clear_type is None:
+                c.setParent(None)
+            elif isinstance(c, clear_type):
+                c.setParent(None)
+
+    def input_connect(self):
+        self.tabWidget.currentChanged.connect(self.update)
+        self.hired.connect(self._hire_employee)
+        self.fired.connect(self._fire_employee)
+
+    def _hire_employee(self, employee_id):
+        if self.game.estate.rooms_available <= 0:
+            self.main.display_message(f"You don't have enough bedrooms to hire another employee.")
+        else:
+            self.main.display_message(f'You have hired [employees:{employee_id}]')
+            ef.hire_employee(employee_id, self.game.owner)
+            self.update()
+
+    def _fire_employee(self, employee_id):
+        self.main.display_message(f'You have fired [employees:{employee_id}]')
+        ef.fire_employee(employee_id)
+        self.update()
+
+
+class EmployeeTile(QFrame):
+
+    def __init__(self, info, tab, main_screen, employee_box, for_hire=True):
+        super(EmployeeTile, self).__init__(tab)
+        self.setStyleSheet(
+            "EmployeeTile {background-color: rgb(175,175,245); margin:5px; border:1px solid rgb(0, 0, 0); }")
+        self.info = info
+        self.main = main_screen
+        self.employee_box = employee_box
+        self.for_hire = for_hire
+        self._create_widgets()
+        self.show()
+        self.mouseDoubleClickEvent = self.hire_or_fire
+
+    def _create_widgets(self):
+        self.setLayout(QtWidgets.QVBoxLayout())
+        label = QLabel(text=f"<b><center>{self.info['name']}</center></b>")
+        self.layout().addWidget(label)
+        label = QLabel(text=f"Salary: ${self.info['salary']}/week")
+        self.layout().addWidget(label)
+
+        # Add bonus info
+        for bonus, b_info in EMPLOYEES[self.info['employee_type']]['bonuses'].items():
+            text = f"{b_info['name']}: {self.info[bonus]}"
+            label = QLabel(text=text)
+            self.layout().addWidget(label)
+
+        self.setFixedSize(self.sizeHint())
+
+    def hire_or_fire(self, _):
+        """Hire or fire the employee who was clicked on."""
+        if self.for_hire:
+            self.employee_box.hired.emit(self.info['employee_id'])
+        else:
+            self.employee_box.fired.emit(self.info['employee_id'])
 
 
 def convert_to_links(msg):

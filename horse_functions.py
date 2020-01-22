@@ -220,13 +220,16 @@ def owner_of(horses):
     Returns:
         int or list. The id or list of ids of the owners of the horse(s).
     """
-    if isinstance(horses, int):
+    try:
+        horses = int(horses)
         output = table_operations.get_column('horses', 'owner_id', [horses])
-        return output['owner_id'].values[0]
+        return int(output['owner_id'].values[0])
+    except TypeError:
+        pass
     try:
         horses = list(horses)
         output = table_operations.get_column('horses', 'owner_id', horses)
-        return list(output['owner_id'].values)
+        return [int(x) for x in output['owner_id'].values]
     except ValueError:
         return None
 
@@ -393,13 +396,13 @@ def check_for_injuries(horse_id, event):
     """
     query = f"SELECT * FROM horse_properties WHERE horse_id = {horse_id}"
     data = table_operations.query_to_dataframe(query).iloc[0]
-    output = {}
+    output = []
     for injury, info in INJURIES[event].items():
         prob_mult = 1
         for multiplier in info['multipliers']:
             prob_mult *= data[multiplier]
         if random.random() < info['probability']*prob_mult:
-            output[info['display']] = [info['part'], info['damage']]
+            output += [injury]
     return output
 
 
@@ -421,17 +424,58 @@ def apply_damage(horse_id, part, amount, date=None):
         table_operations.cursor.execute(cmd)
 
 
-def heal_horses():
-    """Reduce the damage on all horses' body parts. Typically called each day.
+def heal_horses(owner_id='all', heal_rate='default'):
     """
-    command = "UPDATE horses SET leg_damage = MAX(0, leg_damage - ?)"
-    table_operations.cursor.execute(command, [HEAL_RATE])
+    Reduce the damage on all horses' body parts. Typically called each day.
+    Args:
+        owner_id (int or 'all'): Heal all horses owned by this person. If 'all', will
+            heal horses regardless of owner.
+        heal_rate (float or 'default'): How much to heal each horse. If 'default' will
+            use the heal rate given in the parameter file.
+    Returns:
+        None.
 
-    command = "UPDATE horses SET ankle_damage = MAX(0, ankle_damage - ?)"
-    table_operations.cursor.execute(command, [HEAL_RATE])
+    """
+    if heal_rate == 'default':
+        heal_rate = HEAL_RATE
 
-    command = "UPDATE horses SET heart_damage = MAX(0, heart_damage - ?)"
-    table_operations.cursor.execute(command, [HEAL_RATE])
+    if owner_id == 'all':
+        command = "UPDATE horses SET leg_damage = MAX(0, leg_damage - ?)"
+        table_operations.cursor.execute(command, [heal_rate])
+
+        command = "UPDATE horses SET ankle_damage = MAX(0, ankle_damage - ?)"
+        table_operations.cursor.execute(command, [heal_rate])
+
+        command = "UPDATE horses SET heart_damage = MAX(0, heart_damage - ?)"
+        table_operations.cursor.execute(command, [heal_rate])
+    else:
+        command = "UPDATE horses SET leg_damage = MAX(0, leg_damage - ?) WHERE owner_id = ?"
+        table_operations.cursor.execute(command, [heal_rate, owner_id])
+
+        command = "UPDATE horses SET ankle_damage = MAX(0, ankle_damage - ?) WHERE owner_id = ?"
+        table_operations.cursor.execute(command, [heal_rate, owner_id])
+
+        command = "UPDATE horses SET heart_damage = MAX(0, heart_damage - ?) WHERE owner_id = ?"
+        table_operations.cursor.execute(command, [heal_rate, owner_id])
+
+
+def train_horses(owner_id='all', training_amount=0):
+    """
+    Change the training of horses. Typically called each day.
+    Args:
+        owner_id (int or 'all'): Train all horses owned by this person. If 'all', will
+            train horses regardless of owner.
+        training_amount (float): How much to train each horse.
+    Returns:
+        None.
+
+    """
+    if owner_id == 'all':
+        command = "UPDATE horses SET training = MIN(MAX(0, training + ?), ?)"
+        table_operations.cursor.execute(command, [training_amount, MAX_TRAINING])
+    else:
+        command = "UPDATE horses SET training = MIN(MAX(0, training + ?), ?) WHERE owner_id = ?"
+        table_operations.cursor.execute(command, [training_amount, MAX_TRAINING, owner_id])
 
 
 def raceable_horses(owner_id=None):

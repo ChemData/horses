@@ -7,6 +7,7 @@ import horse_functions as hf
 import table_operations as to
 import race_functions as rf
 import owner_functions as of
+import employee_functions as ef
 import estate
 import phenotype as phe
 from game_parameters.constants import *
@@ -22,7 +23,7 @@ class Game:
             gui = BasicPrinter(self)
         self.gui = gui
         self.automated = True
-        if not restart:
+        if restart:
             import game_initializer
 
     def run_days(self, number, basic=False):
@@ -39,7 +40,10 @@ class Game:
                         self._prepare_for_race()
             if self.day_increment % PROPERTY_UPDATE == 0:
                 phe.update_properties(dead_too=False)
-            hf.heal_horses()
+            if self.day_increment % 7 == 0:
+                self._pay_employees()
+            self._conduct_healing()
+            self._train_horses()
 
             self.day += datetime.timedelta(1)
             self.day_increment += 1
@@ -124,11 +128,9 @@ class Game:
 
         # See if any injuries occur
         for i, horse in enumerate(horse_ids):
-            injuries = hf.check_for_injuries(horse, 'race')
-            for phrase, v in injuries.items():
-                hf.apply_damage(horse, v[0], v[1], self.day)
-                self.gui.display_message(f"[horses:{horse}] suffered {phrase}.")
-                speeds[i] = 0  # If a horse is injured it cannot run the race.
+            is_injured = self._injure_horse(horse, 'race')
+            if is_injured:
+                speeds[i] = 0  # An injured horse cannot run
 
         with np.errstate(divide='ignore', invalid='ignore'):  # We are ok with dividing by 0
             times = track_length/speeds
@@ -196,6 +198,8 @@ class Game:
     def random_startup(self):
         """Adds some random data to tables to get the game started."""
         hf.make_random_horses(50, self.day)
+        for i in range(30):
+            ef.generate_employee()
         self.add_owners(5, STARTING_MONEY)
         self.estate = estate.Estate(self.owner)
 
@@ -340,6 +344,79 @@ class Game:
                 of.add_owner(0, 'Wild')
             else:
                 of.add_owner(starting_cash)
+
+    def _pay_employees(self):
+        """Attempt to pay employees their salary. If unable, they will quit."""
+
+        salary = ef.total_salary(self.owner)
+        try:
+            of.remove_money(self.owner, salary)
+            self.gui.display_message(f"Payday! Your happy employees take home ${salary}")
+        except ValueError:
+            self.gui.display_message("You cannot pay your employees. They quit en masse.")
+            command = "UPDATE employees SET employer = ? WHERE employer = ?"
+            to.cursor.execute(command, [ef.UNEMPLOYED, self.owner])
+            of.remove_money(self.owner, 'all')
+
+    def _conduct_healing(self):
+        """
+        Heal horses and apply any bonuses resulting from employees.
+        Returns:
+            None.
+        """
+        for owner in of.owner_list():
+            if owner == self.owner:
+                hf.heal_horses(owner_id=owner, heal_rate=ef.employee_bonus(owner, 'heal_rate')+HEAL_RATE)
+            else:
+                hf.heal_horses(owner_id=owner)
+
+    def _train_horses(self):
+        """
+        Add (or subtract) from all the horses' training.
+        Returns:
+            None.
+        """
+        for owner in of.owner_list():
+            if owner == self.owner:
+                hf.train_horses(owner_id=owner, training_amount=ef.employee_bonus(owner, 'training_rate')-TRAINING_DECAY)
+            else:
+                hf.train_horses(owner_id=owner, training_amount=AI_TRAINING-TRAINING_DECAY)
+
+    def _injure_horse(self, horse_id, event):
+        """
+        Check to see if a horse is injured in an event, and then apply the damage.
+        Args:
+            horse_id (int): ID of the horse to injure.
+            event (str): Name of the event the horse is doing (e.g. 'race').
+        Returns:
+            Bool. True, if the horse is injured at all. False, otherwise.
+        """
+        owner = hf.owner_of(horse_id)
+        injuries = hf.check_for_injuries(horse_id, event)
+        injury_reduction = ef.employee_bonus(owner, 'major_injury_reduction')
+        for injury in injuries:
+            inj_info = INJURIES[event][injury]
+            # See if the injury can be reduced
+            reduced = False
+            try:
+                new_inj = inj_info['reduces_to']
+                if random.random() <= injury_reduction:
+                    reduced = True
+                    new_inj_info = INJURIES[event][new_inj]
+                    self.gui.display_message(
+                        f"[horses:{horse_id}] has suffered {new_inj_info['display']}"
+                        f" (reduced from {inj_info['display']}).")
+                    hf.apply_damage(
+                        horse_id, new_inj_info['part'], new_inj_info['damage'], self.day)
+            except KeyError:
+                pass
+            if not reduced:
+                self.gui.display_message(f"[horses:{horse_id}] has suffered {inj_info['display']}.")
+                hf.apply_damage(
+                    horse_id, inj_info['part'], inj_info['damage'], self.day)
+        if len(injuries) > 0:
+            return True
+        return False
 
 
 class BasicPrinter:

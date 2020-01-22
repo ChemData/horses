@@ -158,6 +158,7 @@
     <addaction name="actionTrading"/>
     <addaction name="actionPedigree"/>
     <addaction name="actionBuildings"/>
+    <addaction name="actionEmployees"/>
    </widget>
    <widget class="QMenu" name="menuDebug">
     <property name="title">
@@ -197,6 +198,11 @@
   <action name="actionHorse_Properties">
    <property name="text">
     <string>Horse properties</string>
+   </property>
+  </action>
+  <action name="actionEmployees">
+   <property name="text">
+    <string>Employees</string>
    </property>
   </action>
  </widget>

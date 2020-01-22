@@ -30,6 +30,13 @@ try:
 except FileNotFoundError:
     with open(os.path.join(PARAMS_FOLDER, 'injuries.json'), 'r') as f:
         INJURIES = json.load(f)
+try:
+    with open(os.path.join(PARAMS_FOLDER, 'local_employees.json'), 'r') as f:
+        EMPLOYEES = json.load(f)
+except FileNotFoundError:
+    with open(os.path.join(PARAMS_FOLDER, 'employees.json'), 'r') as f:
+        EMPLOYEES = json.load(f)
+
 
 # Naming
 HORSE_NAME_MAX = 24  # Longest permitted name for a horse
@@ -46,6 +53,11 @@ LIFE_MEAN = 9490  # Mean lifespan (in days)
 LIFE_STD = 730  # Lifespan standard deviation
 PROPERTY_UPDATE = 30  # How frequently to update a horse's anatomical information
 
+# Training Info
+TRAINING_DECAY = 1  # Amount that a horse's training will decrease by each day
+MAX_TRAINING = 100  # Maximum amount of training that a horse can have
+AI_TRAINING = 1.5  # How much training the horses of the AI players receive each day
+
 # Injury Info
 HEAL_RATE = 1  # Number of points of damage body parts will heal each day
 HEALTH_CUTOFF = 25  # A horse cannot race if total damage is greater than this value
@@ -55,6 +67,12 @@ STARTING_MONEY = 100000  # How much money each player starts with
 INIT_ESTATE_SIZE = 100  # Starting size of estates in hectares
 PASTURE_AMT = 5  # Hectares of pasture needed per horse
 LAND_COST = 1000  # Cost to buy one hectare of open land
+
+# Employees
+MEAN_POINTS = 4  # Average number of points per bonus type to assign to a new employee
+STD_POINTS = 1  # The standard deviation of points
+BASE_SALARY = 50  # What every employee makes per week
+SALARY_MULTIPLIER = 25  # How much more an employee is paid per skill point
 
 try:
     from game_parameters.local_constants import *
