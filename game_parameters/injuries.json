@@ -23,7 +23,7 @@
     },
     "heart_failure": {
       "part": "heart",
-      "display": "heart failure and died.",
+      "display": "heart failure and died",
       "probability": 0.1,
       "damage": "fatal",
       "type": "fatal",
