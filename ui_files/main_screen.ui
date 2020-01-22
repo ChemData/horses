@@ -166,7 +166,17 @@
     </property>
     <addaction name="actionHorse_Properties"/>
    </widget>
+   <widget class="QMenu" name="menuStartup">
+    <property name="title">
+     <string>Startup</string>
+    </property>
+    <addaction name="actionQuick"/>
+    <addaction name="action10_Year"/>
+    <addaction name="action20_Year"/>
+    <addaction name="actionLoad_Saved"/>
+   </widget>
    <addaction name="menuWindows"/>
+   <addaction name="menuStartup"/>
    <addaction name="menuDebug"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -203,6 +213,26 @@
   <action name="actionEmployees">
    <property name="text">
     <string>Employees</string>
+   </property>
+  </action>
+  <action name="actionQuick">
+   <property name="text">
+    <string>Quick</string>
+   </property>
+  </action>
+  <action name="action10_Year">
+   <property name="text">
+    <string>10 Year</string>
+   </property>
+  </action>
+  <action name="action20_Year">
+   <property name="text">
+    <string>20 Year</string>
+   </property>
+  </action>
+  <action name="actionLoad_Saved">
+   <property name="text">
+    <string>Load Saved</string>
    </property>
   </action>
  </widget>

@@ -1,6 +1,8 @@
 import os
+import shutil
 import datetime
 import random
+import math
 import pandas as pd
 import numpy as np
 import horse_functions as hf
@@ -10,11 +12,12 @@ import owner_functions as of
 import employee_functions as ef
 import estate
 import phenotype as phe
-from game_parameters.constants import *
+import game_parameters.constants as c
 
 
 class Game:
-    owner = 2
+    wild = 1  # owner_id of unowned horses
+    owner = 2  # owner_id of the player
 
     def __init__(self, start_day, gui=False, restart=True):
         self.day = pd.to_datetime(start_day)
@@ -25,6 +28,8 @@ class Game:
         self.automated = True
         if restart:
             import game_initializer
+            self.add_owners(5, c.STARTING_MONEY)
+        self.estate = estate.Estate(self.owner)
 
     def run_days(self, number, basic=False):
         """Run the simulation for a number of days."""
@@ -33,12 +38,12 @@ class Game:
             self._deliver_foals()
             self._kill_horses()
             if not basic:
-                if random.random() <= RACE_PROBABILITY:
+                if random.random() <= c.RACE_PROBABILITY:
                     if self.automated:
                         self.race(horse_ids='random')
                     else:
                         self._prepare_for_race()
-            if self.day_increment % PROPERTY_UPDATE == 0:
+            if self.day_increment % c.PROPERTY_UPDATE == 0:
                 phe.update_properties(dead_too=False)
             if self.day_increment % 7 == 0:
                 self._pay_employees()
@@ -49,6 +54,46 @@ class Game:
             self.day_increment += 1
             self.gui.update_day(self.day)
             self.gui.update_money()
+
+    def generate_history(self, number_of_days):
+        """
+        Simulate horse history by breeding, racing, and killing horses.
+        Args:
+            number_of_days (int): How many days of history to simulate.
+            number_of_starting_horses (int): How many horses to start with.
+
+        Returns:
+            None.
+        """
+        for n in range(number_of_days):
+            self._deliver_foals()
+            self._kill_horses()
+            if self.day_increment % c.PROPERTY_UPDATE == 0:
+                phe.update_properties(dead_too=False)
+            if self.day_increment % 30 == 0:
+                self._breed_wild_horses()
+                # The number of races to permit each horse about 1 race per year
+                for i in range(math.ceil(len(self.living_horses())/12/8)):
+                    self.race(horse_ids='random', allow_injuries=False)
+
+            self.day += datetime.timedelta(1)
+            self.day_increment += 1
+
+    def random_startup(self, days=0):
+        """Adds some random data to tables to get the game started."""
+        hf.make_random_horses(50, self.day)
+        self.generate_history(days)
+        for i in range(30):
+            ef.generate_employee()
+        owners = of.owner_list()
+        for h in self.living_horses():
+            hf.trade_horse(h, np.random.choice(owners, size=1)[0])
+        self.automated = False
+
+    def load_saved(self, name):
+        """Use an existing database for this game."""
+        shutil.copyfile('20yr_start_game_data.db', 'game_data.db')
+        self.day = pd.to_datetime('20100101')
 
     def _deliver_foals(self):
         command = f"SELECT horse_id, name from horses where due_date = '{str(self.day)}'"
@@ -99,7 +144,7 @@ class Game:
                   winnings=self.race_info['purse'])
 
     def race(self, horse_ids='random', track_length=1000., noisey_speeds=True,
-             winnings=(100, 50, 20)):
+             winnings=(100, 50, 20), allow_injuries=True):
         """Race the specified horses to see who is the fastest.
 
         Args:
@@ -108,6 +153,7 @@ class Game:
             track_length (float): Length of the track in meters.
             noisey_speeds (bool): If True, will add some gaussian noise to the speed of each horse.
             winnings (tuple): Amount won by the 1st, second, third, etc. horses.
+            allow_injuries (bool): If True, will allow horses to get injured during the race.
 
         Return:
             List. Times (in seconds) of each horse involved in the same order as their ids in the
@@ -127,10 +173,11 @@ class Game:
             speeds += np.random.normal(0, 1, len(speeds))
 
         # See if any injuries occur
-        for i, horse in enumerate(horse_ids):
-            is_injured = self._injure_horse(horse, 'race')
-            if is_injured:
-                speeds[i] = 0  # An injured horse cannot run
+        if allow_injuries:
+            for i, horse in enumerate(horse_ids):
+                is_injured = self._injure_horse(horse, 'race')
+                if is_injured:
+                    speeds[i] = 0  # An injured horse cannot run
 
         with np.errstate(divide='ignore', invalid='ignore'):  # We are ok with dividing by 0
             times = track_length/speeds
@@ -176,16 +223,21 @@ class Game:
         self.gui.display_message(msg)
         self.gui.update_money()
 
-    def _breed_horses(self):
-        if not self.automated:
-            return
+    def _breed_wild_horses(self):
+        """Breed wild horses randomly to achieve a growth rate."""
+        pop_growth = 0.008  # monthly population growth. Corresponds to about 10% annual
+        pregnancies = math.ceil(pop_growth * len(self.living_horses()))
         options = self.breedable_horses()
-        try:
-            fem = np.random.choice(options.loc[options['gender'] == 'F', 'horse_id'].values)
+        fems = np.random.choice(
+            options.loc[options['gender'] == 'F', 'horse_id'].values, pregnancies, replace=False)
+        if len(fems) == 0:
+            return
+        for fem in fems:
             male = np.random.choice(options.loc[options['gender'] == 'M', 'horse_id'].values)
-            hf.horse_sex(fem, male, self.day)
-        except (ValueError, hf.PregnancyIssue):
-            pass
+            try:
+                hf.horse_sex(fem, male, self.day)
+            except (ValueError, hf.PregnancyIssue):
+                pass
 
     def str_to_datetime(self, str):
         """Tries to convert a date string to a datetime."""
@@ -195,26 +247,6 @@ class Game:
         """Clear databases and reinitialize the starting game settings."""
         to.clear_tables(['horses', 'owners'])
 
-    def random_startup(self):
-        """Adds some random data to tables to get the game started."""
-        hf.make_random_horses(50, self.day)
-        for i in range(30):
-            ef.generate_employee()
-        self.add_owners(5, STARTING_MONEY)
-        self.estate = estate.Estate(self.owner)
-
-    def simulate_horse_population(self, days):
-        """Clear all horses. Create an initial population of 50 horses and let them
-        randomly reproduce for days. Then assign all horses to the owners."""
-        self.automated = True
-        self.reset()
-        self.random_startup()
-        self.run_days(days, basic=False)
-        owners = of.owner_list()
-        for h in self.living_horses():
-            hf.trade_horse(h, np.random.choice(owners, size=1)[0])
-        self.automated = False
-
     def breedable_horses(self, owner=None):
         """Return an array of horses that can be made to breed.
 
@@ -223,7 +255,7 @@ class Game:
                 will return horses for all owners.
 
         """
-        youngest = str(self.day - datetime.timedelta(SEXUAL_MATURITY))
+        youngest = str(self.day - datetime.timedelta(c.SEXUAL_MATURITY))
         if owner is None:
             command = f"SELECT * FROM horses where" \
                 f" death_date is NULL" \
@@ -366,7 +398,7 @@ class Game:
         """
         for owner in of.owner_list():
             if owner == self.owner:
-                hf.heal_horses(owner_id=owner, heal_rate=ef.employee_bonus(owner, 'heal_rate')+HEAL_RATE)
+                hf.heal_horses(owner_id=owner, heal_rate=ef.employee_bonus(owner, 'heal_rate')+c.HEAL_RATE)
             else:
                 hf.heal_horses(owner_id=owner)
 
@@ -378,9 +410,9 @@ class Game:
         """
         for owner in of.owner_list():
             if owner == self.owner:
-                hf.train_horses(owner_id=owner, training_amount=ef.employee_bonus(owner, 'training_rate')-TRAINING_DECAY)
+                hf.train_horses(owner_id=owner, training_amount=ef.employee_bonus(owner, 'training_rate')-c.TRAINING_DECAY)
             else:
-                hf.train_horses(owner_id=owner, training_amount=AI_TRAINING-TRAINING_DECAY)
+                hf.train_horses(owner_id=owner, training_amount=c.AI_TRAINING-c.TRAINING_DECAY)
 
     def _injure_horse(self, horse_id, event):
         """
@@ -395,14 +427,14 @@ class Game:
         injuries = hf.check_for_injuries(horse_id, event)
         injury_reduction = ef.employee_bonus(owner, 'major_injury_reduction')
         for injury in injuries:
-            inj_info = INJURIES[event][injury]
+            inj_info = c.INJURIES[event][injury]
             # See if the injury can be reduced
             reduced = False
             try:
                 new_inj = inj_info['reduces_to']
                 if random.random() <= injury_reduction:
                     reduced = True
-                    new_inj_info = INJURIES[event][new_inj]
+                    new_inj_info = c.INJURIES[event][new_inj]
                     self.gui.display_message(
                         f"[horses:{horse_id}] has suffered {new_inj_info['display']}"
                         f" (reduced from {inj_info['display']}).")
