@@ -34,6 +34,8 @@ class MainScreen(QtWidgets.QMainWindow):
         sys.exit(self.app.exec())
 
     def _setup_sub_windows(self):
+        self.currently_showing_box = None
+
         self.race_window = RaceWindow(self, self.game)
 
         self.pedigree_window = PedigreeWindow(self, self.game)
@@ -89,27 +91,40 @@ class MainScreen(QtWidgets.QMainWindow):
         self.money_display.setText(f'Cash: ${money}')
 
     def _show_breeding_box(self):
-        self.trading_box.hide()
+        try:
+            self.currently_showing_box.hide()
+        except AttributeError:
+            pass
         self.breeding_box.show()
         self.breeding_box.update()
+        self.currently_showing_box = self.breeding_box
 
     def _show_trading_box(self):
-        self.breeding_box.hide()
+        try:
+            self.currently_showing_box.hide()
+        except AttributeError:
+            pass
         self.trading_box.show()
         self.trading_box.update()
+        self.currently_showing_box = self.trading_box
 
     def _show_building_box(self):
-        self.trading_box.hide()
-        self.breeding_box.hide()
+        try:
+            self.currently_showing_box.hide()
+        except AttributeError:
+            pass
         self.building_box.show()
         self.building_box.update()
+        self.currently_showing_box = self.building_box
 
     def _show_employee_box(self):
-        self.trading_box.hide()
-        self.breeding_box.hide()
-        self.building_box.hide()
+        try:
+            self.currently_showing_box.hide()
+        except AttributeError:
+            pass
         self.employee_box.show()
         self.employee_box.update()
+        self.currently_showing_box = self.employee_box
 
     def _show_pedigree_window(self):
         self.pedigree_window.show()
