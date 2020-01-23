@@ -53,6 +53,9 @@ LIFE_MEAN = 9490  # Mean lifespan (in days)
 LIFE_STD = 730  # Lifespan standard deviation
 PROPERTY_UPDATE = 30  # How frequently to update a horse's anatomical information
 
+# Economic Values
+MEAT_PRICE = 200  # How much a horse can be sold to the abattoir for
+
 # Training Info
 TRAINING_DECAY = 1  # Amount that a horse's training will decrease by each day
 MAX_TRAINING = 100  # Maximum amount of training that a horse can have

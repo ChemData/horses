@@ -353,7 +353,7 @@ class TradeBox(QMdiSubWindow):
         # Set the starting selections
         self.my_horse = None
         self.their_horses = {}
-        self.counterparty = None
+        self.counterparty = 2
 
     def input_connect(self):
         self.horse_selection.itemClicked.connect(self.main.show_list_horse_info)
@@ -372,20 +372,27 @@ class TradeBox(QMdiSubWindow):
 
     def _populate_horse_list(self):
         """Add available horses to the list."""
+        counterparty = self.counterparty_selection.currentData()
         if self.sell_radio.isChecked():
             owner_id = self.game.owner
             self.horse_selection_label.setText('Your Horses')
+            if counterparty == 1:
+                self.price_entry.setText(str(MEAT_PRICE))
+                self.price_entry.setEnabled(False)
         else:
-            owner_id = self.counterparty_selection.currentData()
+            owner_id = counterparty
             self.horse_selection_label.setText('Their Horses')
-        horse_ids = self.main.game.living_horses(owner_id)
         self.horse_selection.clear()
-        for horse in horse_ids:
-            name = to.get_column('horses', 'name', horse).iloc[0]['name']
-            item = QtWidgets.QListWidgetItem()
-            item.horse_id = horse
-            item.setData(0, name)
-            self.horse_selection.insertItem(1, item)
+        if owner_id != 1:
+            horse_ids = self.main.game.living_horses(owner_id)
+            for horse in horse_ids:
+                name = to.get_column('horses', 'name', horse).iloc[0]['name']
+                item = QtWidgets.QListWidgetItem()
+                item.horse_id = horse
+                item.setData(0, name)
+                self.horse_selection.insertItem(1, item)
+        if counterparty != 1:
+            self.price_entry.setEnabled(True)
 
         self._set_selected_horse()
 
@@ -444,7 +451,12 @@ class TradeBox(QMdiSubWindow):
             return
 
         counterparty = self.counterparty_selection.currentData()
-        decision = of.evaluate_trade(counterparty, horse, price, self.main.game.day, not buying)
+
+        # If you are selling to the general public, the offer is always accepted
+        if counterparty == self.game.wild:
+            decision = 'yes'
+        else:
+            decision = of.evaluate_trade(counterparty, horse, price, self.main.game.day, not buying)
         if decision == 'soft no':
             self.main.display_message("I'm afraid I can't afford that.")
         elif decision == 'no':
@@ -471,12 +483,15 @@ class TradeBox(QMdiSubWindow):
         """Put owner names in the owner selection dropdown."""
         self.counterparty_selection.clear()
         for i, row in to.get_column('owners', 'name').iterrows():
-            if row['owner_id'] != self.game.owner and row['owner_id'] != 1:
+            if row['owner_id'] != self.game.owner:
                 item = QtWidgets.QListWidgetItem()
                 item.owner_id = row['owner_id']
                 item.setData(0, row['name'])
                 self.counterparty_selection.blockSignals(True)
-                self.counterparty_selection.addItem(row['name'], userData=row['owner_id'])
+                if item.owner_id == self.game.wild:
+                    self.counterparty_selection.addItem('Abattoir', userData=row['owner_id'])
+                else:
+                    self.counterparty_selection.addItem(row['name'], userData=row['owner_id'])
                 self.counterparty_selection.blockSignals(False)
 
     def _keep_horse_selection(self, t):

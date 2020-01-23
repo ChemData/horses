@@ -37,7 +37,6 @@ class Game:
     def run_days(self, number, basic=False):
         """Run the simulation for a number of days."""
         for n in range(number):
-            self._breed_horses()
             self._deliver_foals()
             self._kill_horses()
             if not basic:
@@ -50,6 +49,9 @@ class Game:
                 phe.update_properties(dead_too=False)
             if self.day_increment % 7 == 0:
                 self._pay_employees()
+            if self.day_increment % 2 == 0:
+                self._ai_sell_extra_horses()
+                self._ai_breed_horses()
             self._conduct_healing()
             self._train_horses()
 
@@ -467,6 +469,58 @@ class Game:
         self.estate.add_building('large_stable', for_free=True)
         self.gui.update_money()
         self.god_mode = True
+
+    def _ai_sell_extra_horses(self):
+        """Have the AI sell horses above a certain threshold.
+
+        The current heuristic is to sell the horses with the lowest speed.
+        """
+        for owner_id in self.ai_owners:
+            q = """
+            SELECT horse_properties.horse_id, speed FROM horse_properties \
+                INNER JOIN horses ON horse_properties.horse_id = horses.horse_id
+                WHERE horses.owner_id = ? AND horses.death_date is NULL
+                ORDER BY speed DESC
+            """
+            to_sell = to.query_to_dataframe(q, [owner_id]).iloc[20:]
+            of.add_money(owner_id, len(to_sell) * c.MEAT_PRICE)
+            for i, horse in to_sell.iterrows():
+                hf.trade_horse(horse['horse_id'], self.wild)
+
+    def _ai_breed_horses(self):
+        """Have the AI breed good horses together.
+
+        The current heuristic is to breed all males with the fastest stallions. The
+        probability of a stallion breeding is given by a boltzmann distribution.
+        """
+        youngest = str(self.day - datetime.timedelta(c.SEXUAL_MATURITY))
+        for owner_id in self.ai_owners:
+            q = """
+            SELECT horse_properties.horse_id, speed, gender FROM horse_properties \
+                INNER JOIN horses ON horse_properties.horse_id = horses.horse_id
+                    WHERE horses.owner_id = ?
+                    AND horses.death_date is NULL
+                    AND horses.due_date is NULL
+                    AND horses.birth_date < ?
+                ORDER BY speed DESC
+            """
+            to_breed = to.query_to_dataframe(q, [owner_id, youngest])
+            ladies = to_breed[to_breed['gender'] == 'F']
+            men = to_breed[to_breed['gender'] == 'M'].copy()
+            if len(ladies) == 0 or len(men) == 0:
+                continue
+            men['speed'] -= men['speed'].min()
+            men['prob'] = men['speed'].apply(lambda x: math.e**(x/.2))
+            men['prob'] /= men['prob'].sum()
+            bred_men = np.random.choice(men['horse_id'].values, size=len(ladies), p=men['prob'])
+            for i, lady_id in enumerate(ladies['horse_id'].values):
+                hf.horse_sex(lady_id, bred_men[i], self.day)
+
+    @property
+    def ai_owners(self):
+        """Return the ids of the ai owners."""
+        return list(set(of.owner_list()).difference([self.owner, self.wild]))
+
 
 
 class BasicPrinter:
