@@ -37,7 +37,6 @@ class Game:
     def run_days(self, number, basic=False):
         """Run the simulation for a number of days."""
         for n in range(number):
-            self._breed_horses()
             self._deliver_foals()
             self._kill_horses()
             if not basic:
