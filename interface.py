@@ -171,6 +171,11 @@ class MainScreen(QtWidgets.QMainWindow):
         else:
             self.game.run_race(player_horses=[])
 
+    def ask_to_name_foal(self, mother, foal_gender):
+        nw = NamingDialog(self, mother, foal_gender)
+        nw.exec()
+        return nw.name_entry.toPlainText()
+
     def show_list_horse_info(self, t):
         """Display the information of a horse in the list."""
         info = self.game.horse_info(t.horse_id)
@@ -470,7 +475,8 @@ class TradeBox(QMdiSubWindow):
             if self.sell_radio.isChecked():
                 hf.trade_horse(horse, counterparty)
                 of.add_money(self.game.owner, price)
-                of.remove_money(counterparty, price)
+                if counterparty != self.game.wild:
+                    of.remove_money(counterparty, price)
             else:
                 hf.trade_horse(horse, self.game.owner)
                 of.add_money(counterparty, price)
@@ -617,6 +623,47 @@ class PropertyWindow(QtWidgets.QMainWindow):
 
     def input_connect(self):
         pass
+
+
+class NamingDialog(QtWidgets.QDialog):
+    def __init__(self, main_screen, mother, gender):
+        self.main = main_screen
+        self.gender = gender
+        super(NamingDialog, self).__init__()
+        uic.loadUi(os.path.join('ui_files', 'naming_dialog.ui'), self)
+        self.input_connect()
+        self._random_name()
+        if gender == 'M':
+            word, pronoun = 'colt', 'him'
+        else:
+            word, pronoun = 'filly', 'her'
+        msg = f"{mother} has given birth to a {word} what do you want to name {pronoun}?"
+        self.message_display.setText(msg)
+
+    def update(self, race_info):
+        self._refresh_horse_list()
+        self.horses_needed = race_info['horses_per_owner']
+        msg_text = f'Track Length: {race_info["length"]} m'
+        msg_text += '\nPurse Distribution'
+        for i, p in enumerate(race_info['purse']):
+            msg_text += f'\n\t{text.ordinal(i+1)} place: ${p:.2f}'
+        self.race_info.setText(msg_text)
+        self._update_number_needed()
+
+    def input_connect(self):
+        self.randomize.clicked.connect(self._random_name)
+        self.accept.clicked.connect(self._use_name)
+
+    def _random_name(self):
+        """Generate a random name."""
+        if self.gender == 'M':
+            name = np.random.choice(hf.MALE_NAMES, 1)[0]
+        else:
+            name = np.random.choice(hf.FEMALE_NAMES, 1)[0]
+        self.name_entry.setText(name)
+
+    def _use_name(self):
+        return self.close()
 
 
 class BuildingBox(QMdiSubWindow):

@@ -116,7 +116,7 @@ def horse_sex(horse1, horse2, date):
     table_operations.update_value('horses', command)
 
 
-def give_birth(horse, date, name=None):
+def give_birth(horse, date, name=None, store_horse=True):
     """Make a horse give birth to a pony.
 
     Args:
@@ -124,7 +124,13 @@ def give_birth(horse, date, name=None):
         date (datetime): Date of birth.
         name (str or None): Name of the new horse. If None, will use a random name
             appropriate to the foal's sex.
+        store_horse (bool): If True, will add the newly born horse to the horse table. If
+            False, will not do so, and will instead return the new horse's info so that
+            it can be modified and added later.
 
+    Returns:
+        int. The ID of the new horse. Or dict, if add_horse==False, containing the horse
+            information.
     """
     dam = table_operations.get_rows('horses', horse).iloc[0]
 
@@ -149,7 +155,6 @@ def give_birth(horse, date, name=None):
             foal['name'] = np.random.choice(MALE_NAMES, 1)[0]
 
     mix_genomes(dam, sire, foal)
-    new_id = add_horse(foal)
 
     command = f"SET impregnated_by = NULL WHERE horse_id = {horse}"
     table_operations.update_value('horses', command)
@@ -157,7 +162,11 @@ def give_birth(horse, date, name=None):
     command = f"SET due_date = NULL WHERE horse_id = {horse}"
     table_operations.update_value('horses', command)
 
-    return new_id
+    if store_horse:
+        new_id = add_horse(foal)
+        return new_id
+    else:
+        return foal
 
 
 def mix_genomes(dam, sire, foal):
