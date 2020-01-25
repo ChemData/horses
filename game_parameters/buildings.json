@@ -4,7 +4,7 @@
     "type": "stable",
     "cost": 5000,
     "size": 3,
-    "horse_capacity": 5
+    "horse_capacity": 8
   },
   "medium_stable": {
     "name": "Medium Stable",
