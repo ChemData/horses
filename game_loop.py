@@ -101,16 +101,18 @@ class Game:
         self.day = pd.to_datetime('20100101')
 
     def _deliver_foals(self):
-        command = f"SELECT horse_id, name from horses where due_date = '{str(self.day)}'"
+        command = f"SELECT horse_id, name, owner_id from horses where due_date = '{str(self.day)}'"
         to_deliver = to.query_to_dataframe(command)
         for _, horse in to_deliver.iterrows():
-            if not self.automated:
-                name = input(f"{horse['name']} has given birth to a foal. "
-                             f"What would you like it name it?")
+            if horse['owner_id'] == self.owner:
+                foal_info = hf.give_birth(horse['horse_id'], self.day,store_horse=False)
+                name = self.gui.ask_to_name_foal(horse['name'], foal_info['gender'])
+                foal_info['name'] = name
+                foal_id = hf.add_horse(foal_info)
             else:
                 foal_id = hf.give_birth(horse['horse_id'], self.day, name=None)
-                self.gui.display_message(
-                    f"[horses:{horse['horse_id']}] has given birth to a foal named [horses:{foal_id}].")
+            self.gui.display_message(
+                f"[horses:{horse['horse_id']}] has given birth to a foal named [horses:{foal_id}].")
 
     def _kill_horses(self):
         """Kill any horses who are due to die this day."""
@@ -520,7 +522,6 @@ class Game:
     def ai_owners(self):
         """Return the ids of the ai owners."""
         return list(set(of.owner_list()).difference([self.owner, self.wild]))
-
 
 
 class BasicPrinter:
