@@ -43,7 +43,7 @@ HORSE_NAME_MAX = 24  # Longest permitted name for a horse
 OWNER_NAME_MAX = 24  # Longest permitted name for an owner
 
 # Event Probabilities
-RACE_PROBABILITY = 0  # Probability that a race will occur each day
+RACE_PROBABILITY = .3  # Probability that a race will occur each day
 
 # Horse life times
 SEXUAL_MATURITY = 730  # Age (in days) when breeding can occur
@@ -67,9 +67,11 @@ HEALTH_CUTOFF = 25  # A horse cannot race if total damage is greater than this v
 
 # Estates
 STARTING_MONEY = 10000  # How much money each player starts with
-INIT_ESTATE_SIZE = 100  # Starting size of estates in hectares
+INIT_ESTATE_SIZE = 60  # Starting size of estates in hectares
 PASTURE_AMT = 5  # Hectares of pasture needed per horse
 LAND_COST = 1000  # Cost to buy one hectare of open land
+STARTING_BUILDINGS = ['small_stable', 'cottage']  # Buildings the estate starts with
+HUMAN_STARTING_HORSES = 6  # How many horses the human player starts with
 
 # Employees
 MEAN_POINTS = 4  # Average number of points per bonus type to assign to a new employee

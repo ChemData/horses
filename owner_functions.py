@@ -156,6 +156,7 @@ def horse_value(horse_id, day):
     remaining_life = max(0, max_age - current_age)
 
     expected_races = remaining_life/race_functions.races_per_day()
+    expected_races = min(20, expected_races)
     return expected_races * horse_functions.expected_winnings(horse_id)
 
 

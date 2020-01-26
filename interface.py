@@ -610,6 +610,8 @@ class PropertyWindow(QtWidgets.QMainWindow):
 
     def update(self, horse):
         data = to.get_rows('horse_properties', [horse]).iloc[0]
+        due_date = to.query_to_dataframe(
+            "SELECT due_date FROM horses WHERE horse_id = ?", [horse])['due_date'].values[0]
 
         msg = ''
         for prop, val in data.iteritems():
@@ -618,6 +620,9 @@ class PropertyWindow(QtWidgets.QMainWindow):
         data = to.get_rows('horses', [horse]).iloc[0]
         for prop in ['leg_damage',  'ankle_damage', 'heart_damage']:
             msg += f'{prop}:  {data[prop]} \n'
+        msg += f'Due Date: {due_date}\n'
+        msg += f'Estimated Value: {of.horse_value(horse, self.game.day)}\n'
+
 
         self.property_box.setText(msg)
 

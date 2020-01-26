@@ -152,11 +152,10 @@
    </property>
    <widget class="QMenu" name="menuWindows">
     <property name="title">
-     <string>Windows</string>
+     <string>Boxes</string>
     </property>
     <addaction name="actionBreeding"/>
     <addaction name="actionTrading"/>
-    <addaction name="actionPedigree"/>
     <addaction name="actionBuildings"/>
     <addaction name="actionEmployees"/>
    </widget>
@@ -176,7 +175,14 @@
     <addaction name="action20_Year"/>
     <addaction name="actionLoad_Saved"/>
    </widget>
+   <widget class="QMenu" name="menuWindows_2">
+    <property name="title">
+     <string>Windows</string>
+    </property>
+    <addaction name="actionPedigree"/>
+   </widget>
    <addaction name="menuWindows"/>
+   <addaction name="menuWindows_2"/>
    <addaction name="menuStartup"/>
    <addaction name="menuDebug"/>
   </widget>

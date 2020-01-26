@@ -32,6 +32,8 @@ class Game:
             to.load_disk_database('game_data.db')
             self.add_owners(5, c.STARTING_MONEY)
         self.estate = estate.Estate(self.owner)
+        self.estate.add_building('small_stable', True)
+        self.estate.add_building('cottage', True)
         self.god_mode = False
 
     def run_days(self, number, basic=False):
@@ -95,10 +97,34 @@ class Game:
             hf.trade_horse(h, np.random.choice(owners, size=1)[0])
         self.automated = False
 
+    def _redistribute_horses(self):
+        """Redistributes living horses among the players."""
+        # Start by returning all horses to the wild
+        to.cursor.execute("UPDATE horses SET owner_id = ?", [self.wild])
+
+        # And then give the human player as many horses as they deserve
+        living = np.array(self.living_horses())
+        np.random.shuffle(living)
+        for i in range(c.HUMAN_STARTING_HORSES):
+            hf.trade_horse(living[i], self.owner)
+
+        # And the AI players get the rest
+        horses_per_ai = (len(living) - c.HUMAN_STARTING_HORSES)//len(self.ai_owners)
+        offset = c.HUMAN_STARTING_HORSES
+        for i, owner_id in enumerate(self.ai_owners):
+            for horse in range(horses_per_ai):
+                hf.trade_horse(living[offset], owner_id)
+                offset += 1
+
+
     def load_saved(self, name):
         """Use an existing database for this game."""
         to.load_disk_database('20yr_start_game_data.db')
         self.day = pd.to_datetime('20100101')
+        self._redistribute_horses()
+
+        # set the player's money correctly
+        to.cursor.execute("UPDATE owners SET money = ?", [c.STARTING_MONEY])
 
     def _deliver_foals(self):
         command = f"SELECT horse_id, name, owner_id from horses where due_date = '{str(self.day)}'"
