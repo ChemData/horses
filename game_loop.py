@@ -13,27 +13,22 @@ import employee_functions as ef
 import estate
 import phenotype as phe
 import game_parameters.constants as c
-import game_initializer
 
 
 class Game:
     wild = 1  # owner_id of unowned horses
     owner = 2  # owner_id of the player
+    default_start_day = '20000101' #  Start date to use if one hadn't been saved
 
     def __init__(self, start_day, gui=False, restart=True):
-        self.day = pd.to_datetime(start_day)
-        self.day_increment = 0
         if not gui:
             gui = BasicPrinter(self)
         self.gui = gui
         self.automated = True
         if restart:
-            game_initializer.create_empty_tables()
-            to.load_disk_database('game_data.db')
-            self.add_owners(5, c.STARTING_MONEY)
-        self.estate = estate.Estate(self.owner)
-        self.estate.add_building('small_stable', True)
-        self.estate.add_building('cottage', True)
+            to.create_empty_tables(True)
+
+        self._read_game_info()
         self.god_mode = False
 
     def run_days(self, number, basic=False):
@@ -62,7 +57,7 @@ class Game:
             self.gui.update_day(self.day)
             self.gui.update_money()
 
-    def generate_history(self, number_of_days):
+    def generate_history(self, number_of_days, number_of_starting_horses):
         """
         Simulate horse history by breeding, racing, and killing horses.
         Args:
@@ -72,6 +67,7 @@ class Game:
         Returns:
             None.
         """
+        hf.make_random_horses(number_of_starting_horses, self.day)
         for n in range(number_of_days):
             self._deliver_foals()
             self._kill_horses()
@@ -86,16 +82,21 @@ class Game:
             self.day += datetime.timedelta(1)
             self.day_increment += 1
 
-    def random_startup(self, days=0):
-        """Adds some random data to tables to get the game started."""
-        hf.make_random_horses(50, self.day)
-        self.generate_history(days)
         for i in range(30):
             ef.generate_employee()
-        owners = of.owner_list()
-        for h in self.living_horses():
-            hf.trade_horse(h, np.random.choice(owners, size=1)[0])
-        self.automated = False
+
+        # Set up the player's starting estate
+        self.add_owners(5, c.STARTING_MONEY)
+        estate.add_estate(self.owner, replace=True)
+        estate.buy_land(self.owner, c.INIT_ESTATE_SIZE, for_free=True)
+        estate.add_building(self.owner, 'small_stable', True)
+        estate.add_building(self.owner, 'cottage', True)
+
+        self._redistribute_horses()
+
+        self.gui.update_money()
+        self.gui.update_day(self.day)
+
 
     def _redistribute_horses(self):
         """Redistributes living horses among the players."""
@@ -116,15 +117,21 @@ class Game:
                 hf.trade_horse(living[offset], owner_id)
                 offset += 1
 
-
     def load_saved(self, name):
         """Use an existing database for this game."""
-        to.load_disk_database('20yr_start_game_data.db')
-        self.day = pd.to_datetime('20100101')
-        self._redistribute_horses()
+        to.load_save(name)
+        self._read_game_info()
+        self.gui.update_day(self.day)
+        self.gui.update_money()
 
-        # set the player's money correctly
-        to.cursor.execute("UPDATE owners SET money = ?", [c.STARTING_MONEY])
+    def save_game(self, name):
+        """Save the database for this game."""
+        # The game state information has to be saved
+        d = pd.DataFrame({'date': self.day, 'date_increment': self.day_increment}, index=[0])
+        d.to_sql('game_info', to.db, if_exists='replace', index=False)
+
+        # Save the database
+        to.save_game(name)
 
     def _deliver_foals(self):
         command = f"SELECT horse_id, name, owner_id from horses where due_date = '{str(self.day)}'"
@@ -261,10 +268,10 @@ class Game:
         pop_growth = 0.008  # monthly population growth. Corresponds to about 10% annual
         pregnancies = math.ceil(pop_growth * len(self.living_horses()))
         options = self.breedable_horses()
+        if pregnancies == 0 or len(options[options['gender'] == 'F']) == 0:
+            return
         fems = np.random.choice(
             options.loc[options['gender'] == 'F', 'horse_id'].values, pregnancies, replace=False)
-        if len(fems) == 0:
-            return
         for fem in fems:
             male = np.random.choice(options.loc[options['gender'] == 'M', 'horse_id'].values)
             try:
@@ -486,15 +493,15 @@ class Game:
     def enable_god_mode(self):
         """Give the player bonuses and powers that are useful for debugging."""
         of.add_money(self.owner, 10000000)
-        self.estate.buy_land(1000000, for_free=True)
-        self.estate.add_building('lodge', for_free=True)
-        self.estate.add_building('lodge', for_free=True)
-        self.estate.add_building('lodge', for_free=True)
-        self.estate.add_building('lodge', for_free=True)
-        self.estate.add_building('large_stable', for_free=True)
-        self.estate.add_building('large_stable', for_free=True)
-        self.estate.add_building('large_stable', for_free=True)
-        self.estate.add_building('large_stable', for_free=True)
+        estate.buy_land(self.owner, 1000000, for_free=True)
+        estate.add_building(self.owner, 'lodge', for_free=True)
+        estate.add_building(self.owner, 'lodge', for_free=True)
+        estate.add_building(self.owner, 'lodge', for_free=True)
+        estate.add_building(self.owner, 'lodge', for_free=True)
+        estate.add_building(self.owner, 'large_stable', for_free=True)
+        estate.add_building(self.owner, 'large_stable', for_free=True)
+        estate.add_building(self.owner, 'large_stable', for_free=True)
+        estate.add_building(self.owner, 'large_stable', for_free=True)
         self.gui.update_money()
         self.god_mode = True
 
@@ -548,6 +555,16 @@ class Game:
     def ai_owners(self):
         """Return the ids of the ai owners."""
         return list(set(of.owner_list()).difference([self.owner, self.wild]))
+
+    def _read_game_info(self):
+        """Read the saved game info into instance variables if it is available."""
+        info = to.game_info_state()
+        if info is None:
+            self.day = pd.to_datetime(self.default_start_day)
+            self.day_increment = 0
+        else:
+            self.day = pd.to_datetime(info['date'])
+            self.day_increment = info['date_increment']
 
 
 class BasicPrinter:

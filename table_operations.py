@@ -1,33 +1,41 @@
 import os
 import numbers
 import sqlite3
+import shutil
+from inspect import getmembers, isfunction
 from io import StringIO
 import numpy as np
 import pandas as pd
-
-folder = os.path.dirname(__file__)
-db = sqlite3.connect(":memory:")
-cursor = db.cursor()
-
-DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date', 'last_updated']
+import recalc_phenotype_funcs
+import fixed_phenotype_funcs
+import game_parameters.constants as c
 
 
-def load_disk_database(db_name):
-    # Read database to tempfile
-    con = sqlite3.connect(database=os.path.join(folder, db_name))
-    tempfile = StringIO()
-    for line in con.iterdump():
-        tempfile.write('%s\n' % line)
-    con.close()
-    tempfile.seek(0)
+def load_save(save_name):
+    """Set the active database to be a particular save."""
+    global db
+    db.close()
 
-    # Drop all the tables in the in-memory database
-    delete_tables(list_tables())
+    shutil.copyfile(os.path.join(folder, f"{save_name}"),
+                    os.path.join(folder, f"active_game.db"))
 
-    # Import from tempfile to the in-memory database
-    cursor.executescript(tempfile.read())
-    db.commit()
-    db.row_factory = sqlite3.Row
+    db = sqlite3.connect(os.path.join(folder, f"active_game.db"))
+    global cursor
+    cursor = db.cursor()
+    create_empty_tables(overwrite=False)
+
+
+def save_game(save_name):
+    """
+    Save the active database to a stored database.
+    Args:
+        save_name (str): The name of the stored database.
+
+    Returns:
+        None.
+    """
+    shutil.copyfile(os.path.join(folder, f"active_game.db"),
+                    os.path.join(folder, f"{save_name}.db"))
 
 
 def insert_into_table(table, data_dict):
@@ -231,4 +239,143 @@ def convert_for_sqlite(value):
         raise ValueError(f"{value} cannot be converted into a form for storage in a database.")
 
 
-load_disk_database('game_data.db')
+def create_empty_tables(overwrite=True):
+    """
+    Create empty tables in the loaded database.
+    Args:
+        overwrite (bool): If True, will delete any existing tables in the database and so
+            create all blank tables. If False, will only create blank tables for any that
+            are missing.
+
+    Returns:
+        None.
+
+    """
+    if overwrite:
+        delete_tables(['horses', 'owners', 'races', 'race_results',
+                                        'horse_properties', 'employees', 'estates', 'game_info'])
+
+    # Create all the necessary tables
+    tables = {}
+    base_pairs = c.CHROMOSOME_LENGTH * c.GENE_LENGTH
+    tables['horses'] = """
+    CREATE TABLE IF NOT EXISTS horses (
+        horse_id INTEGER PRIMARY KEY,
+        birth_date TEXT NOT NULL,
+        death_date TEXT DEFAULT NULL,
+        expected_death TEXT NOT NULL,
+        name TEXT NOT NULL,
+        gender TEXT check(gender in ('M', 'F')),
+        owner_id INTEGER,
+        due_date TEXT DEFAULT NULL,
+        impregnated_by INTEGER DEFAULT NULL,
+        dam INTEGER DEFAULT NULL,
+        sire INTEGER DEFAULT NULL,
+        dna1 TEXT,
+        dna2 TEXT,
+        leg_damage REAL DEFAULT 0,
+        ankle_damage REAL DEFAULT 0,
+        heart_damage REAL DEFAULT 0,
+        training REAL DEFAULT 0,
+        FOREIGN KEY (owner_id) REFERENCES owners (owner_id)
+        )"""
+
+    tables['owners'] = """
+    CREATE TABLE IF NOT EXISTS owners (
+        owner_id INTEGER PRIMARY KEY,
+        money INTEGER NOT NULL,
+        name TEXT NOT NULL
+        )"""
+
+    tables['races'] = """
+    CREATE TABLE IF NOT EXISTS races (
+        race_id INTEGER PRIMARY KEY,
+        date TEXT NOT NULL,
+        total_purse INTEGER DEFAULT 0,
+        distance REAL NOT NULL
+        )"""
+
+    tables['race_results'] = """
+    CREATE TABLE IF NOT EXISTS race_results (
+        result_id INTEGER PRIMARY KEY,
+        horse_id INTEGER NOT NULL,
+        race_id INTEGER NOT NULL,
+        time REAL,
+        place INTEGER,
+        winnings INTEGER DEFAULT 0,
+        FOREIGN KEY (horse_id) REFERENCES horses (horse_id)
+        FOREIGN KEY (race_id) REFERENCES races (race_id)
+        )"""
+
+    prop_table = """
+    CREATE TABLE IF NOT EXISTS horse_properties (
+        horse_id integer PRIMARY KEY,
+    """
+    for func_name in [x[0] for x in getmembers(recalc_phenotype_funcs) if isfunction(x[1])]:
+        prop_table += f'{func_name} float,'
+
+    for func_name in [x[0] for x in getmembers(fixed_phenotype_funcs) if isfunction(x[1])]:
+        prop_table += f'{func_name} float,'
+    prop_table += "FOREIGN KEY (horse_id) REFERENCES horses (horse_id))"
+    tables['prop_table'] = prop_table
+
+    employee_table = """
+    CREATE TABLE IF NOT EXISTS employees (
+        employee_id INTEGER PRIMARY KEY,
+        employer INTEGER DEFAULT 1,
+        salary REAL DEFAULT 0,
+        employee_type TEXT NOT NULL,
+        name TEXT NOT NULL,
+    """
+    cols = []
+    for employee in c.EMPLOYEES.keys():
+        cols += list(c.EMPLOYEES[employee]['bonuses'].keys())
+    for col in set(cols):
+        employee_table += f"{col} float DEFAULT 0,\n"
+    employee_table += "FOREIGN KEY (employer) REFERENCES owners (owner_id))"
+    tables['employee_table'] = employee_table
+
+    estate_table = """
+    CREATE TABLE IF NOT EXISTS estates (
+        owner_id INTEGER PRIMARY KEY,
+        total_land REAL DEFAULT 0,
+        free_land REAL DEFAULT 0,
+    """
+    for b in list(c.BUILDINGS.keys())[:-1]:
+        estate_table += f"{b} integer DEFAULT 0,\n"
+    estate_table += f"{list(c.BUILDINGS.keys())[-1]} INTEGER DEFAULT 0);"
+    tables['estate_table'] = estate_table
+
+    tables['game_info'] = """
+    CREATE TABLE IF NOT EXISTS game_info (
+        date TEXT DEFAULT '2000-01-01',
+        date_increment INTEGER DEFAULT 0)"""
+
+    for name, table in tables.items():
+        print(f"Creating table {name}. ")
+        cursor.execute(table)
+    db.commit()
+
+
+def game_info_state():
+    """
+    Return the content of the game_info table in the form of a dictionary. Return None,
+    if there is no saved info.
+    """
+    data = pd.read_sql_query("SELECT * FROM game_info LIMIT 1", db)
+    if len(data) == 0:
+        return None
+    return data.iloc[0].to_dict()
+
+
+folder = os.path.join(os.path.dirname(__file__), 'saves')
+DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date', 'last_updated']
+
+if not os.path.exists(os.path.join(folder, "active_game.db")):
+    db = sqlite3.connect(os.path.join(folder, "active_game.db"))
+    cursor = db.cursor()
+    create_empty_tables()
+else:
+    db = sqlite3.connect(os.path.join(folder, "active_game.db"))
+    cursor = db.cursor()
+    create_empty_tables(overwrite=False)
