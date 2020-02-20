@@ -173,7 +173,8 @@
     <addaction name="actionQuick"/>
     <addaction name="action10_Year"/>
     <addaction name="action20_Year"/>
-    <addaction name="actionLoad_Saved"/>
+    <addaction name="actionLoad"/>
+    <addaction name="actionSave"/>
    </widget>
    <widget class="QMenu" name="menuWindows_2">
     <property name="title">
@@ -237,14 +238,19 @@
     <string>20 Year</string>
    </property>
   </action>
-  <action name="actionLoad_Saved">
+  <action name="actionLoad">
    <property name="text">
-    <string>Load Saved</string>
+    <string>Load</string>
    </property>
   </action>
   <action name="actionGod_mode">
    <property name="text">
     <string>God mode</string>
+   </property>
+  </action>
+  <action name="actionSave">
+   <property name="text">
+    <string>Save</string>
    </property>
   </action>
  </widget>

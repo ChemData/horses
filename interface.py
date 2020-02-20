@@ -3,14 +3,15 @@ import os
 import re
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
-from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QLabel, QWidget, QPushButton, QFrame, QScrollArea
+from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QLabel, QWidget, QPushButton,\
+    QFrame, QScrollArea, QFileDialog
 from game_loop import Game
 import table_operations as to
 import owner_functions as of
 import horse_functions as hf
 import employee_functions as ef
+import estate
 import text_operations as text
-from estate import NotEnoughLand, InsufficientFunds
 from game_parameters.constants import *
 
 
@@ -23,7 +24,7 @@ class MainScreen(QtWidgets.QMainWindow):
         uic.loadUi(os.path.join('ui_files', 'main_screen.ui'), self)
         self.messages = []
 
-        self.game = Game('19900101', self)
+        self.game = Game('19900101', gui=self)
 
         self._setup_sub_windows()
 
@@ -63,10 +64,11 @@ class MainScreen(QtWidgets.QMainWindow):
         self.actionBuildings.triggered.connect(self._show_building_box)
         self.actionEmployees.triggered.connect(self._show_employee_box)
         self.actionHorse_Properties.triggered.connect(self._show_property_window)
-        self.actionQuick.triggered.connect(lambda x: self.game.random_startup(0))
-        self.action10_Year.triggered.connect(lambda x: self.game.random_startup(10*365))
-        self.action20_Year.triggered.connect(lambda x: self.game.random_startup(20*365))
-        self.actionLoad_Saved.triggered.connect(self.game.load_saved)
+        self.actionQuick.triggered.connect(lambda x: self.game.generate_history(0, 25))
+        self.action10_Year.triggered.connect(lambda x: self.game.generate_history(10*365, 25))
+        self.action20_Year.triggered.connect(lambda x: self.game.generate_history(20*365, 25))
+        self.actionLoad.triggered.connect(self._load_game)
+        self.actionSave.triggered.connect(self._save_game)
         self.actionGod_mode.triggered.connect(self.game.enable_god_mode)
 
     def _next_day_push(self):
@@ -181,6 +183,18 @@ class MainScreen(QtWidgets.QMainWindow):
         info = self.game.horse_info(t.horse_id)
         info = convert_to_links(info)
         self.entity_info_box.setText(info)
+
+    def _load_game(self):
+        """Ask the player to select a saved game to load."""
+        filename, _ = QFileDialog.getOpenFileName(self, "Select a saved game to load", "saves")
+        if filename is not None:
+            self.game.load_saved(filename)
+
+    def _save_game(self):
+        """Ask the player where they want to save the game."""
+        filename, _ = QFileDialog.getSaveFileName(self, "Select a file to save as", "saves")
+        if filename is not None:
+            self.game.save_game(filename)
 
 
 class BreedingBox(QMdiSubWindow):
@@ -446,7 +460,7 @@ class TradeBox(QMdiSubWindow):
             self.update()
             return
 
-        if buying and self.game.estate.horse_capacity <\
+        if buying and estate.horse_capacity(self.game.owner) <\
                 len(self.game.living_horses(self.game.owner)) + 1:
             self.main.display_message("Your estate cannot fit any more horses.")
             return
@@ -721,23 +735,23 @@ class BuildingBox(QMdiSubWindow):
 
     def _buy_land(self):
         try:
-            self.game.estate.buy_land(self.hectare_input.value())
+            estate.buy_land(self.game.owner, self.hectare_input.value())
             self.main.update_money()
             self._update_land_tab()
-        except InsufficientFunds:
+        except estate.InsufficientFunds:
             self.main.display_message("You don't have enough money for that purchase.")
 
     def _sell_land(self):
         try:
-            self.game.estate.sell_land(self.hectare_input.value())
+            estate.sell_land(self.game.owner, self.hectare_input.value())
             self.main.update_money()
             self._update_land_tab()
-        except NotEnoughLand:
+        except estate.NotEnoughLand:
             self.main.display_message("You don't have that much free land.")
 
     def _update_land_tab(self):
-        self.free_land.setText(f'{self.game.estate.pasture_land} Ha')
-        if self.game.estate.pasture_land < self.hectare_input.value():
+        self.free_land.setText(f'{estate.free_land(self.game.owner)} Ha')
+        if estate.free_land(self.game.owner) < self.hectare_input.value():
             self.sell_land_button.setEnabled(False)
         else:
             self.sell_land_button.setEnabled(True)
@@ -777,23 +791,23 @@ class BuildingRow(QWidget):
     def buy(self):
         """Try to buy one of the building."""
         try:
-            self.main.game.estate.add_building(self.building)
-        except InsufficientFunds:
+            estate.add_building(self.main.game.owner, self.building)
+        except estate.InsufficientFunds:
             self.main.display_message('You do not have enough money to buy that.')
-        except NotEnoughLand:
+        except estate.NotEnoughLand:
             self.main.display_message('Your estate is not large enough for that building.')
         self.parentWidget().parentWidget().parentWidget().parentWidget().update()
 
     def sell(self):
         """Try to sell one of the building."""
         try:
-            self.main.game.estate.remove_building(self.building)
+            estate.remove_building(self.main.game.owner, self.building)
         except ValueError:
             pass
         self.update()
 
     def update(self):
-        number = self.main.game.estate.building_count.get(self.building, 0)
+        number = estate.building_count(self.main.game.owner, self.building)
         self.amount.setText(f'{str(number)}       ')
         if number == 0:
             self.sell_button.setEnabled(False)
@@ -853,7 +867,7 @@ class EmployeeBox(QMdiSubWindow):
     def update(self):
         # Update number stats
         self.current_salary.setText(f'Current Salary: ${ef.total_salary(self.game.owner)}/week')
-        self.rooms_available.setText(f'Rooms Available: {self.game.estate.rooms_available}')
+        self.rooms_available.setText(f'Rooms Available: {estate.rooms_available(self.game.owner)}')
 
         # Update employee tiles
         tab = self.tabWidget.currentWidget()
@@ -895,7 +909,7 @@ class EmployeeBox(QMdiSubWindow):
         self.fired.connect(self._fire_employee)
 
     def _hire_employee(self, employee_id):
-        if self.game.estate.rooms_available <= 0:
+        if estate.rooms_available(self.game.owner) <= 0:
             self.main.display_message(f"You don't have enough bedrooms to hire another employee.")
         else:
             self.main.display_message(f'You have hired [employees:{employee_id}]')

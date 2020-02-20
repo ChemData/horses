@@ -121,6 +121,8 @@ def money(owner_id):
     """
     command = f"SELECT money FROM owners WHERE owner_id = {owner_id}"
     data = table_operations.query_to_dataframe(command)
+    if len(data) == 0:
+        return 0
     return data.iloc[0]['money']
 
 
