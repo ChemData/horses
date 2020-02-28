@@ -162,16 +162,17 @@ class MainScreen(QtWidgets.QMainWindow):
         total_message = '<body>------------------</body><br></br>'.join(self.messages)
         self.message_box.setText(total_message)
 
-    def ask_to_join_race(self, race_info):
+    def ask_to_join_race(self):
         reply = QMessageBox.question(
-            self, 'PyQt5 message', "Do you want to enter horses in the upcoming race?",
+            self, 'Race Invitation',
+            f"Do you want to enter horses in the upcoming {self.game.current_race['name']}?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.race_window.show()
-            self.race_window.update(race_info)
+            self.race_window.update()
             return []
         else:
-            self.game.run_race(player_horses=[])
+            self.game.run_race()
 
     def ask_to_name_foal(self, mother, foal_gender):
         nw = NamingDialog(self, mother, foal_gender)
@@ -277,12 +278,12 @@ class RaceWindow(QtWidgets.QMainWindow):
 
         self.input_connect()
 
-    def update(self, race_info):
+    def update(self):
         self._refresh_horse_list()
-        self.horses_needed = race_info['horses_per_owner']
-        msg_text = f'Track Length: {race_info["length"]} m'
+        self.horses_needed = self.game.current_race['horses_for_player']
+        msg_text = f'Track Length: {self.game.current_race["length"]} m'
         msg_text += '\nPurse Distribution'
-        for i, p in enumerate(race_info['purse']):
+        for i, p in enumerate(self.game.current_race['purse']):
             msg_text += f'\n\t{text.ordinal(i+1)} place: ${p:.2f}'
         self.race_info.setText(msg_text)
         self._update_number_needed()

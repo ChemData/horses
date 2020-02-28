@@ -243,7 +243,7 @@ def building_count(owner, building_type):
         f"SELECT {building_type} FROM estates WHERE owner_id = ?", params=[owner])
     if len(d) == 0:
         return 0
-    return d.iloc[0][building_type].values[0]
+    return d.iloc[0][building_type]
 
 
 class InsufficientFunds(Exception):

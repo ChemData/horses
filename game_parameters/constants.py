@@ -36,6 +36,13 @@ try:
 except FileNotFoundError:
     with open(os.path.join(PARAMS_FOLDER, 'employees.json'), 'r') as f:
         EMPLOYEES = json.load(f)
+try:
+    with open(os.path.join(PARAMS_FOLDER, 'local_events.json'), 'r') as f:
+        EVENTS = json.load(f)
+except FileNotFoundError:
+    with open(os.path.join(PARAMS_FOLDER, 'events.json'), 'r') as f:
+        EVENTS = json.load(f)
+
 
 
 # Naming
