@@ -10,6 +10,9 @@ import recalc_phenotype_funcs
 import fixed_phenotype_funcs
 import game_parameters.constants as c
 
+folder = os.path.join(os.path.dirname(__file__), 'saves')
+DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date', 'last_updated']
+
 
 def load_save(save_name):
     """Set the active database to be a particular save."""
@@ -114,6 +117,8 @@ def format_list(seq):
 
 def qmark_list(number):
     """Return a string like '(?, ?, ?, ?)' ."""
+    if number == 0:
+        return '()'
     output = '('
     for i in range(number-1):
         output += '?, '
@@ -251,10 +256,6 @@ def create_empty_tables(overwrite=True):
         None.
 
     """
-    if overwrite:
-        delete_tables(['horses', 'owners', 'races', 'race_results',
-                                        'horse_properties', 'employees', 'estates', 'game_info'])
-
     # Create all the necessary tables
     tables = {}
     base_pairs = c.CHROMOSOME_LENGTH * c.GENE_LENGTH
@@ -317,7 +318,7 @@ def create_empty_tables(overwrite=True):
     for func_name in [x[0] for x in getmembers(fixed_phenotype_funcs) if isfunction(x[1])]:
         prop_table += f'{func_name} float,'
     prop_table += "FOREIGN KEY (horse_id) REFERENCES horses (horse_id))"
-    tables['prop_table'] = prop_table
+    tables['horse_properties'] = prop_table
 
     employee_table = """
     CREATE TABLE IF NOT EXISTS employees (
@@ -333,7 +334,7 @@ def create_empty_tables(overwrite=True):
     for col in set(cols):
         employee_table += f"{col} float DEFAULT 0,\n"
     employee_table += "FOREIGN KEY (employer) REFERENCES owners (owner_id))"
-    tables['employee_table'] = employee_table
+    tables['employees'] = employee_table
 
     estate_table = """
     CREATE TABLE IF NOT EXISTS estates (
@@ -344,12 +345,23 @@ def create_empty_tables(overwrite=True):
     for b in list(c.BUILDINGS.keys())[:-1]:
         estate_table += f"{b} integer DEFAULT 0,\n"
     estate_table += f"{list(c.BUILDINGS.keys())[-1]} INTEGER DEFAULT 0);"
-    tables['estate_table'] = estate_table
+    tables['estates'] = estate_table
 
     tables['game_info'] = """
     CREATE TABLE IF NOT EXISTS game_info (
         date TEXT DEFAULT '2000-01-01',
         date_increment INTEGER DEFAULT 0)"""
+
+    tables['calendar'] = """
+    CREATE TABLE IF NOT EXISTS calendar (
+        date TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT,
+        PRIMARY KEY (date, name))
+    """
+
+    if overwrite:
+        delete_tables(tables.keys())
 
     for name, table in tables.items():
         print(f"Creating table {name}. ")
@@ -368,14 +380,6 @@ def game_info_state():
     return data.iloc[0].to_dict()
 
 
-folder = os.path.join(os.path.dirname(__file__), 'saves')
-DATE_COLUMNS = ['birth_date', 'death_date', 'expected_death', 'due_date', 'date', 'last_updated']
-
-if not os.path.exists(os.path.join(folder, "active_game.db")):
-    db = sqlite3.connect(os.path.join(folder, "active_game.db"))
-    cursor = db.cursor()
-    create_empty_tables()
-else:
-    db = sqlite3.connect(os.path.join(folder, "active_game.db"))
-    cursor = db.cursor()
-    create_empty_tables(overwrite=False)
+db = sqlite3.connect(os.path.join(folder, "active_game.db"))
+cursor = db.cursor()
+create_empty_tables(overwrite=False)

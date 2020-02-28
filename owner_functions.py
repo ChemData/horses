@@ -32,7 +32,8 @@ def pick_race_horses(owner_id, number):
     """
     owner_id = int(owner_id)
     horses = horse_functions.raceable_horses(owner_id)
-
+    if len(horses) == 0:
+        return []
     query = f"SELECT horse_id, speed FROM horse_properties WHERE" \
         f" horse_id in {table_operations.qmark_list(len(horses))}"
     speeds = table_operations.query_to_dataframe(query, horses)

@@ -1,0 +1,46 @@
+{
+  "preakness": {
+    "type": "race",
+    "name": "Preakness Stakes",
+    "length": 1911,
+    "purse": [1000, 500, 100],
+    "date": [5, 18],
+    "racers": 13,
+    "weight": [57.2, 55],
+    "speed_bonus": 0.1,
+    "track": "dirt"
+  },
+  "belmont": {
+    "type": "race",
+    "name": "Belmont Stakes",
+    "length": 2414,
+    "purse": [1500, 750, 200],
+    "date": [6, 7],
+    "racers": 12,
+    "weight": [57.2, 55],
+    "speed_bonus": 0.15,
+    "track": "dirt"
+  },
+  "kentucky": {
+    "type": "race",
+    "name": "Kentucky Derby",
+    "length": 2012,
+    "purse": [2500, 1000, 300],
+    "date": [5, 2],
+    "racers": 20,
+    "weight": [57.2, 55],
+    "speed_bonus": 0.2,
+    "track": "dirt"
+  },
+  "kirros": {
+    "type": "race",
+    "name": "Kirros Invitational",
+    "length": 3000,
+    "purse": [2500, 1000, 300],
+    "date": [1, 4],
+    "racers": 10,
+    "weight": [57.2, 55],
+    "speed_bonus": 0.0,
+    "track": "dirt"
+  }
+}
