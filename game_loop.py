@@ -194,7 +194,7 @@ class Game:
 
         # Determine a name for the race
         if name == 'random':
-            start = random.choice(['Santa Anita', 'Rheinland', 'American', 'Royal',
+            start = random.choice(['Santa Anita', 'Rhineland', 'American', 'Royal',
                                    'Sussex', 'Alameda', 'Atlanta', 'Champions'])
             end = random.choice(['Stakes', 'Invitational', 'Derby', 'Cup', 'Classic',
                                  'Handicap', 'International', 'Sprint', 'Memorial'])
@@ -401,7 +401,25 @@ class Game:
         msg += f'<body style="text-indent:0px">Owner: {data["owner_id"]}</body>'
 
         # Add speed
-        msg += f'<body style="text-indent:0px">Speed: {props["speed"]:.4}</body>'
+        if estate.building_count(self.owner, 'track') > 0:
+            speed = f"{props['speed']:.4} m/s"
+        else:
+            speed = 'unknown'
+        msg += f'<body style="text-indent:0px">Speed: {speed}</body>'
+
+        # Add weight
+        if estate.building_count(self.owner, 'scale') > 0:
+            weight = f"{props['weight_stat']:.4} kg"
+        else:
+            weight = 'unknown'
+        msg += f'<body style="text-indent:0px">Weight: {weight}</body>'
+
+        # Add heart size
+        if estate.building_count(self.owner, 'mri') > 0:
+            hsize = f"{props['heart_size']:.4}/1"
+        else:
+            hsize = 'unknown'
+        msg += f'<body style="text-indent:0px">Heart Size: {hsize}</body>'
 
         def injury_term(x):
             if x == 0:
@@ -678,8 +696,6 @@ class Race:
         self.horses_for_player = horses_for_player
         self.racers = racers
         self.speed_bonus = speed_bonus
-
-
 
 
 class BasicPrinter:
