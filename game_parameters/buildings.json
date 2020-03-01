@@ -1,6 +1,7 @@
 {
   "small_stable": {
     "name": "Small Stable",
+    "text": "A small stable that can hold {size} horses.",
     "type": "stable",
     "cost": 5000,
     "size": 3,
@@ -8,6 +9,7 @@
   },
   "medium_stable": {
     "name": "Medium Stable",
+    "text": "A mid-sized stable that can hold {size} horses.",
     "type": "stable",
     "cost": 25000,
     "size": 6,
@@ -15,6 +17,7 @@
   },
   "large_stable": {
     "name": "Large Stable",
+    "text": "An elaborate stable that can house {size} horses.",
     "type": "stable",
     "cost": 80000,
     "size": 9,
@@ -22,6 +25,7 @@
   },
   "cottage": {
     "name": "Cottage",
+    "text": "Housing for {person_capacity}.",
     "type": "housing",
     "cost": 2000,
     "size": 4,
@@ -29,6 +33,7 @@
   },
   "lodge": {
     "name": "Lodge",
+    "text": "A large building that {person_capacity} employees can live in.",
     "type": "housing",
     "cost": 30000,
     "size": 20,
@@ -36,7 +41,36 @@
   },
   "swimming_pool" : {
     "name": "swimming pool",
+    "text": "This building does nothing.",
     "cost": 50000,
     "size": 10
+  },
+  "scale" : {
+    "name": "scale",
+    "text": "A scale let's you measure the weights of your horses.",
+    "cost": 1000,
+    "size": 1,
+    "max": 1
+  },
+  "measuring_tape" : {
+    "name": "measuring tape",
+    "text": "This will let you know the height of your horses.",
+    "cost": 1000,
+    "size": 0,
+    "max": 1
+  },
+  "track" : {
+    "name": "track",
+    "text": "A dirt track used for testing your horses speeds outside of the rigors of a true race.",
+    "cost": 30000,
+    "size": 40,
+    "max": 1
+  },
+  "mri" : {
+    "name": "MRI",
+    "text": "An expensive machine to see the inside of a horse.",
+    "cost": 60000,
+    "size": 4,
+    "max": 1
   }
 }

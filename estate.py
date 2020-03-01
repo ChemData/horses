@@ -85,7 +85,7 @@ def remove_building(owner, building_name):
             None.
     """
     qry = f"SELECT {building_name} FROM estates WHERE owner_id = ?"
-    count = to.query_to_dataframe(qry, [owner]).loc[0, building_name]
+    count = int(to.query_to_dataframe(qry, [owner]).loc[0, building_name])
     if count > 0:
         # Remove the building
         qry = f"UPDATE estates SET {building_name} = ? WHERE owner_id = ?"

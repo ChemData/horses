@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+from math import inf
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QMessageBox, QMdiSubWindow, QLabel, QWidget, QPushButton,\
@@ -776,12 +777,21 @@ class BuildingRow(QWidget):
         self.show()
 
     def _create_widgets(self):
-        label = QLabel(self, text=self.info['name'].title())
+        name = self.info['name']
+        if name.islower():
+            label = QLabel(self, text=name.title())
+        else:
+            label = QLabel(self, text=name)
         label.move(10, 4)
+        label.setToolTip(self.info.get('text', '').format(**self.info))
         self.amount = QLabel(self, text='0')
         self.amount.move(100, 4)
         self.buy_button = QPushButton(self, text=f'Buy (${self.info["cost"]})')
         self.buy_button.move(150, 0)
+        try:
+            self.buy_button.setToolTip(f"Maximum: {self.info['max']}")
+        except KeyError:
+            pass
         self.sell_button = QPushButton(self, text=f'Sell')
         self.sell_button.move(250, 0)
 
@@ -815,6 +825,10 @@ class BuildingRow(QWidget):
         else:
             self.sell_button.setEnabled(True)
         if of.money(self.main.game.owner) < self.info['cost']:
+            self.buy_button.setEnabled(False)
+        else:
+            self.buy_button.setEnabled(True)
+        if number == self.info.get('max', inf):
             self.buy_button.setEnabled(False)
         else:
             self.buy_button.setEnabled(True)
